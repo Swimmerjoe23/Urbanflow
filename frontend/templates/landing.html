@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>UrbanFlow — Nairobi Road Planner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:     #FFFFFF;
+      --bg-2:   #F6F6F4;
+      --ink:    #111111;
+      --ink-2:  #3A3A38;
+      --ink-3:  #6E6E6B;
+      --ink-4:  #9C9C98;
+      --line:   #E2E1DC;
+      --accent: #2451E5;
+      --accent-d: #1B3FBE;
+      --r:  4px; --r-lg: 8px;
+    }
+    html, body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--ink); }
+
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 48px; border-bottom: 1px solid var(--line);
+      position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(8px);
+    }
+    .nav-logo { font-size: 16px; font-weight: 700; color: var(--ink); text-decoration: none; }
+    .nav-logo span { color: var(--ink-4); font-weight: 400; }
+    .nav-right { display: flex; align-items: center; gap: 8px; }
+    .nav-link { font-size: 13px; color: var(--ink-3); text-decoration: none; padding: 6px 10px; }
+    .nav-link:hover { color: var(--ink); }
+    .nav-btn {
+      background: var(--ink); color: #fff; border: none; border-radius: var(--r);
+      padding: 8px 18px; font-size: 13px; font-weight: 500;
+      cursor: pointer; text-decoration: none; transition: background 0.15s;
+    }
+    .nav-btn:hover { background: var(--accent); }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: calc(100vh - 60px);
+      display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
+      padding: 60px 48px; max-width: 1100px; margin: 0 auto;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase;
+      color: var(--ink-3);
+      border: 1px solid var(--line);
+      padding: 6px 12px; border-radius: 20px; margin-bottom: 26px;
+    }
+    .hero-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+    .hero-title {
+      font-family: 'Source Serif 4', serif;
+      font-size: clamp(40px, 6.5vw, 72px);
+      font-weight: 600; line-height: 1.05; letter-spacing: -1px;
+      color: var(--ink); margin-bottom: 22px; max-width: 820px;
+    }
+    .hero-title em { color: var(--accent); font-style: normal; }
+    .hero-sub {
+      font-size: clamp(15px, 1.6vw, 17px); color: var(--ink-3); line-height: 1.65;
+      max-width: 540px; margin-bottom: 36px;
+    }
+    .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+    .btn-hero {
+      padding: 13px 28px; border-radius: var(--r);
+      font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none;
+      transition: all 0.15s; display: inline-block;
+    }
+    .btn-hero-primary { background: var(--ink); color: #fff; border: 1px solid var(--ink); }
+    .btn-hero-primary:hover { background: var(--accent); border-color: var(--accent); }
+    .btn-hero-ghost { background: transparent; color: var(--ink-2); border: 1px solid var(--line); }
+    .btn-hero-ghost:hover { border-color: var(--ink-3); }
+
+    .hero-note { margin-top: 22px; font-size: 12px; color: var(--ink-4); }
+
+    /* ── FEATURES ── */
+    .features { padding: 80px 48px; max-width: 1100px; margin: 0 auto; border-top: 1px solid var(--line); }
+    .section-label { font-size: 11px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--accent); margin-bottom: 12px; }
+    .section-title {
+      font-family: 'Source Serif 4', serif; font-size: clamp(26px, 3.5vw, 36px); font-weight: 600;
+      color: var(--ink); letter-spacing: -0.5px; margin-bottom: 48px; max-width: 600px;
+    }
+    .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+    .fcard { background: #fff; padding: 28px 26px; }
+    .fcard-num { font-size: 11px; font-weight: 600; color: var(--ink-4); margin-bottom: 16px; }
+    .fcard-title { font-size: 15px; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
+    .fcard-body  { font-size: 12.5px; color: var(--ink-3); line-height: 1.65; }
+
+    /* ── HOW IT WORKS ── */
+    .how { padding: 80px 48px; border-top: 1px solid var(--line); }
+    .how-inner { max-width: 720px; margin: 0 auto; }
+    .step-list { display: flex; flex-direction: column; }
+    .step { display: flex; gap: 24px; padding: 26px 0; border-bottom: 1px solid var(--line); }
+    .step:last-child { border-bottom: none; }
+    .step-num { font-family: 'Source Serif 4', serif; font-size: 22px; font-weight: 600; color: var(--ink-4); width: 36px; flex-shrink: 0; }
+    .step-content h3 { font-size: 15px; font-weight: 600; color: var(--ink); margin-bottom: 5px; }
+    .step-content p  { font-size: 13px; color: var(--ink-3); line-height: 1.6; }
+
+    /* ── CTA ── */
+    .cta { padding: 90px 48px; text-align: center; border-top: 1px solid var(--line); }
+    .cta h2 { font-family: 'Source Serif 4', serif; font-size: clamp(26px, 4vw, 36px); font-weight: 600; color: var(--ink); letter-spacing: -0.5px; margin-bottom: 14px; }
+    .cta p { font-size: 14px; color: var(--ink-3); margin-bottom: 30px; }
+
+    footer {
+      border-top: 1px solid var(--line); padding: 26px 48px;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 11.5px; color: var(--ink-4); flex-wrap: wrap; gap: 8px;
+    }
+    footer a { color: var(--ink-3); text-decoration: none; }
+    footer a:hover { color: var(--ink); }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="/" class="nav-logo">Urban<span>Flow</span></a>
+    <div class="nav-right">
+      <a href="#features" class="nav-link">Features</a>
+      <a href="#how" class="nav-link">How it works</a>
+      <a href="/about" class="nav-link">About</a>
+      <a href="/login" class="nav-btn">Sign in</a>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <div class="hero-badge">Live OpenStreetMap data — Nairobi, Kenya</div>
+    <h1 class="hero-title">Plan roads with <em>confidence</em></h1>
+    <p class="hero-sub">
+      Load real road networks, simulate traffic congestion, compute optimal routes,
+      and compare infrastructure scenarios — all in the browser.
+    </p>
+    <div class="hero-actions">
+      <a href="/login" class="btn-hero btn-hero-primary">Get started</a>
+      <a href="#how"   class="btn-hero btn-hero-ghost">See how it works</a>
+    </div>
+    <p class="hero-note">No installation required · Class project, University of Nairobi</p>
+  </section>
+
+  <section class="features" id="features">
+    <p class="section-label">What you can do</p>
+    <h2 class="section-title">Everything a city planner needs</h2>
+    <div class="feature-grid">
+      <div class="fcard"><div class="fcard-num">01</div><div class="fcard-title">Live road networks</div><div class="fcard-body">Fetch real road data from OpenStreetMap for any Nairobi neighbourhood — CBD, Westlands, Kibera, and more.</div></div>
+      <div class="fcard"><div class="fcard-num">02</div><div class="fcard-title">Route optimisation</div><div class="fcard-body">Compare Dijkstra and A* algorithms side by side. Optimise by shortest distance or fastest travel time.</div></div>
+      <div class="fcard"><div class="fcard-num">03</div><div class="fcard-title">Traffic prediction</div><div class="fcard-body">See predicted congestion by hour and day of week. Roads are colour-coded green, amber, or red.</div></div>
+      <div class="fcard"><div class="fcard-num">04</div><div class="fcard-title">Vehicle simulation</div><div class="fcard-body">Animate dozens of vehicles on the live network to visualise traffic flow patterns in real time.</div></div>
+      <div class="fcard"><div class="fcard-num">05</div><div class="fcard-title">Edit the network</div><div class="fcard-body">Add or remove road segments, change speed limits and lane counts, then instantly see the impact.</div></div>
+      <div class="fcard"><div class="fcard-num">06</div><div class="fcard-title">Compare scenarios</div><div class="fcard-body">Save multiple versions of a network and compare edge counts and average congestion head to head.</div></div>
+    </div>
+  </section>
+
+  <section class="how" id="how">
+    <div class="how-inner">
+      <p class="section-label">Workflow</p>
+      <h2 class="section-title" style="margin-bottom:32px">How it works</h2>
+      <div class="step-list">
+        <div class="step"><div class="step-num">1</div><div class="step-content"><h3>Pick a neighbourhood or draw a custom area</h3><p>Choose a preset area like Nairobi CBD or Westlands, or drag a bounding box over any location on the map.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><h3>Fetch the live road network</h3><p>Click Fetch and UrbanFlow downloads the real road graph from OpenStreetMap, including speed limits and road types.</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><h3>Plan routes and predict congestion</h3><p>Click two points to set an origin and destination, choose your algorithm, and compute the optimal path.</p></div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-content"><h3>Simulate, edit, and compare</h3><p>Run a live vehicle simulation, edit the road network, save your scenario, and compare it against alternatives.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta">
+    <h2>Ready to start planning?</h2>
+    <p>Sign in to access the full road planning simulator.</p>
+    <a href="/login" class="btn-hero btn-hero-primary">Open the planner</a>
+  </section>
+
+  <footer>
+    <span>© 2024 UrbanFlow · Class Project</span>
+    <span>Built with OSMnx · NetworkX · Flask · Leaflet.js</span>
+    <a href="/about">About this project</a>
+  </footer>
+
+</body>
+</html>

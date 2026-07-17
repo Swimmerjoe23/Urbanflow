@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "urbanflow",
+      "runtimeExecutable": "/Users/John_1/Documents/PROJECTS/urbanflow/venv/bin/python",
+      "runtimeArgs": ["/Users/John_1/Documents/PROJECTS/urbanflow/app.py"],
+      "port": 5050
+    }
+  ]
+}

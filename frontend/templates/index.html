@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>UrbanFlow — Nairobi Road Planner</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap"/>
+  <link rel="stylesheet" href="/static/css/main.css"/>
+</head>
+<body>
+<div id="app">
+
+  <!-- ═══════════════ SIDEBAR ══════════════════════════════════ -->
+  <aside id="sidebar">
+
+    <div id="logo">
+      <div id="logo-wordmark">Urban<span>Flow</span></div>
+      <div id="logo-sub">Nairobi Road Planner</div>
+      <div id="logo-nav">
+        <button id="btn-report" class="logo-nav-link" style="background:none;border:none;font-family:inherit;cursor:pointer;padding:0">Report</button>
+        <a href="/about" target="_blank" class="logo-nav-link">About</a>
+        <a href="/logout" class="logo-nav-link">Sign out</a>
+      </div>
+    </div>
+
+    <div id="mode-tabs">
+      <button class="mode-tab active" data-mode="analyse">Analyse</button>
+      <button class="mode-tab" data-mode="edit">Edit</button>
+      <button class="mode-tab" data-mode="compare">Compare</button>
+    </div>
+
+    <!-- progress dots -->
+    <div id="prog">
+      <div class="pdot cur" id="pd1">1</div>
+      <div class="pline" id="pl1"></div>
+      <div class="pdot" id="pd2">2</div>
+      <div class="pline" id="pl2"></div>
+      <div class="pdot" id="pd3">3</div>
+      <div class="pline" id="pl3"></div>
+      <div class="pdot" id="pd4">4</div>
+    </div>
+
+    <div class="sidebar-scroll">
+
+      <!-- ── ANALYSE ─────────────────────────────────────────── -->
+      <div id="mode-analyse">
+
+        <!-- Load -->
+        <div class="panel">
+          <div class="panel-label">01 · Load network</div>
+          <div id="area-chips">
+            <span class="achip" data-bbox="-1.2921,36.8219,-1.2721,36.8419">CBD</span>
+            <span class="achip" data-bbox="-1.2634,36.7896,-1.2434,36.8096">Westlands</span>
+            <span class="achip" data-bbox="-1.3100,36.7700,-1.2900,36.7900">Kibera</span>
+            <span class="achip" data-bbox="-1.2500,36.8500,-1.2300,36.8700">Kasarani</span>
+            <span class="achip" data-bbox="-1.3200,36.8200,-1.3000,36.8400">South B</span>
+            <span class="achip" data-bbox="-1.2700,36.8100,-1.2500,36.8300">Parklands</span>
+          </div>
+          <p class="hint">Or draw a custom box — click <strong style="color:var(--rust-l)">Draw</strong> then drag on the map.</p>
+          <div class="btn-row">
+            <button id="btn-draw" class="btn btn-ghost">Draw</button>
+            <button id="btn-fetch" class="btn btn-primary" disabled>Fetch</button>
+          </div>
+          <div id="st-load" class="status"></div>
+        </div>
+
+        <!-- Road types -->
+        <div class="panel" id="sec-types" style="display:none">
+          <div class="panel-label">Road types</div>
+          <div id="road-type-grid"></div>
+        </div>
+
+        <!-- Route -->
+        <div class="panel">
+          <div class="panel-label">02 · Route</div>
+          <p class="hint">Click two points on the map to set origin and destination.</p>
+          <div class="field">
+            <label>Algorithm</label>
+            <select id="algo">
+              <option value="dijkstra">Dijkstra — shortest distance</option>
+              <option value="astar">A* — fastest travel time</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Optimise by</label>
+            <select id="weight">
+              <option value="length">Distance (metres)</option>
+              <option value="travel_time">Travel time</option>
+            </select>
+          </div>
+          <div class="waypoint-row">
+            <span class="wp-pip a"></span>
+            <span id="wp-a">Origin — <span class="wp-val">not set</span></span>
+          </div>
+          <div class="waypoint-row">
+            <span class="wp-pip b"></span>
+            <span id="wp-b">Destination — <span class="wp-val">not set</span></span>
+          </div>
+          <div class="btn-row" style="margin-top:6px">
+            <button id="btn-route" class="btn btn-primary" disabled>Compute</button>
+            <button id="btn-clear-route" class="btn btn-ghost" disabled>Clear</button>
+          </div>
+          <div id="st-route" class="status"></div>
+        </div>
+
+        <!-- Traffic -->
+        <div class="panel">
+          <div class="panel-label">03 · Traffic prediction</div>
+          <div class="slider-row">
+            <label>Hour</label>
+            <input type="range" id="hour" min="0" max="23" value="8"/>
+            <span class="slider-val" id="hour-val">08:00</span>
+          </div>
+          <div class="field">
+            <label>Day</label>
+            <select id="day">
+              <option value="0">Monday</option><option value="1">Tuesday</option>
+              <option value="2">Wednesday</option><option value="3">Thursday</option>
+              <option value="4">Friday</option><option value="5">Saturday</option>
+              <option value="6">Sunday</option>
+            </select>
+          </div>
+          <div class="btn-row">
+            <button id="btn-traffic" class="btn btn-primary" disabled>Predict</button>
+            <button id="btn-clear-traffic" class="btn btn-ghost" disabled>Clear</button>
+          </div>
+          <div class="legend">
+            <span><span class="lpip" style="background:var(--sage)"></span>Free</span>
+            <span><span class="lpip" style="background:var(--amber)"></span>Moderate</span>
+            <span><span class="lpip" style="background:var(--rust)"></span>Congested</span>
+          </div>
+          <p class="synthetic-note">⚠ Predictions use synthetic training data for demonstration purposes only — not real Nairobi traffic counts.</p>
+        </div>
+
+        <!-- Simulation -->
+        <div class="panel">
+          <div class="panel-label">04 · Simulate vehicles</div>
+          <div class="slider-row">
+            <label>Count</label>
+            <input type="range" id="sim-n" min="5" max="120" value="50"/>
+            <span class="slider-val" id="sim-n-val">50</span>
+          </div>
+          <div class="slider-row">
+            <label>Speed</label>
+            <input type="range" id="sim-s" min="1" max="10" value="3"/>
+            <span class="slider-val" id="sim-s-val">3×</span>
+          </div>
+          <div class="btn-row">
+            <button id="btn-sim-go"   class="btn btn-primary" disabled>▶ Start</button>
+            <button id="btn-sim-stop" class="btn btn-ghost"   disabled>■ Stop</button>
+          </div>
+          <div class="legend" style="margin-top:8px">
+            <span><span class="lpip" style="background:#38bdf8"></span>Oncoming</span>
+            <span><span class="lpip" style="background:var(--rust-l)"></span>Outgoing</span>
+          </div>
+          <div id="st-sim" class="status"></div>
+        </div>
+
+      </div><!-- /analyse -->
+
+      <!-- ── EDIT ─────────────────────────────────────────────── -->
+      <div id="mode-edit" style="display:none">
+        <div class="panel">
+          <div class="panel-label">Edit tools</div>
+          <div class="etool" data-tool="add">
+            <span class="etool-icon">＋</span>
+            <div><div class="etool-name">Add road</div><div class="etool-desc">Click two nodes to connect them</div></div>
+          </div>
+          <div class="etool" data-tool="remove">
+            <span class="etool-icon">✕</span>
+            <div><div class="etool-name">Remove road</div><div class="etool-desc">Click a segment to delete it</div></div>
+          </div>
+          <div class="etool" data-tool="inspect">
+            <span class="etool-icon">◎</span>
+            <div><div class="etool-name">Inspect road</div><div class="etool-desc">Click a segment to edit attributes</div></div>
+          </div>
+          <div id="st-edit" class="status" style="margin-top:4px"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-label">Road attributes</div>
+          <div id="attr-form">
+            <div class="field"><label>Type</label>
+              <select id="a-type">
+                <option value="primary">Primary</option>
+                <option value="secondary">Secondary</option>
+                <option value="tertiary">Tertiary</option>
+                <option value="residential" selected>Residential</option>
+                <option value="unclassified">Unclassified</option>
+              </select>
+            </div>
+            <div class="field"><label>Speed kph</label><input type="number" id="a-speed" value="50" min="5" max="120"/></div>
+            <div class="field"><label>Lanes</label><input type="number" id="a-lanes" value="2" min="1" max="8"/></div>
+            <div class="field"><label>Name</label><input type="text" id="a-name" placeholder="Road name…"/></div>
+          </div>
+        </div>
+      </div><!-- /edit -->
+
+      <!-- ── COMPARE ───────────────────────────────────────────── -->
+      <div id="mode-compare" style="display:none">
+        <div class="panel">
+          <div class="panel-label">Save scenario</div>
+          <div class="field"><input type="text" id="sc-name" placeholder="Scenario name…"/></div>
+          <button id="btn-save" class="btn btn-primary" disabled>Save current network</button>
+        </div>
+        <div class="panel">
+          <div class="panel-label">Saved scenarios</div>
+          <div id="sc-list"><p class="hint">No scenarios yet.</p></div>
+        </div>
+        <div class="panel">
+          <div class="panel-label">Compare two scenarios</div>
+          <div class="field"><label>Scenario A</label><select id="cmp-a"><option value="">— select —</option></select></div>
+          <div class="field"><label>Scenario B</label><select id="cmp-b"><option value="">— select —</option></select></div>
+          <button id="btn-cmp" class="btn btn-primary" disabled>Run comparison</button>
+          <div id="st-cmp" class="status"></div>
+        </div>
+      </div><!-- /compare -->
+
+    </div><!-- /scroll -->
+  </aside>
+
+  <!-- ═══════════════ MAP ═══════════════════════════════════════ -->
+  <div id="map-wrap">
+    <div id="map"></div>
+
+    <!-- Welcome -->
+    <div id="welcome">
+      <div class="wcard">
+        <div class="wcard-tag">Nairobi · Kenya</div>
+        <div class="wcard-title">Plan roads<br/><span>with confidence</span></div>
+        <div class="wcard-body">Load a real road network, simulate traffic, plan routes and compare infrastructure scenarios — no specialist training needed.</div>
+        <div class="wsteps">
+          <div class="wstep"><div class="wstep-n">1</div>Pick a neighbourhood or draw a custom area</div>
+          <div class="wstep"><div class="wstep-n">2</div>Fetch the live road network</div>
+          <div class="wstep"><div class="wstep-n">3</div>Plan routes and predict congestion</div>
+          <div class="wstep"><div class="wstep-n">4</div>Simulate vehicles and compare scenarios</div>
+        </div>
+        <button class="wcard-btn" id="btn-welcome">Start planning →</button>
+      </div>
+    </div>
+
+    <!-- Insight chip -->
+    <div id="insight-chip" class="hidden">
+      <span class="dot"></span>
+      <span id="insight-chip-text">0 insights found</span>
+    </div>
+
+    <!-- Compare result bar -->
+    <div id="compare-bar" class="hidden">
+      <div>
+        <div class="cslot-label">Scenario A</div>
+        <div class="cslot-name" id="ca-name">—</div>
+        <div class="cstats">
+          <span class="cstat">Edges: <strong id="ca-e">—</strong></span>
+          <span class="cstat">Congestion: <strong id="ca-c">—</strong></span>
+        </div>
+      </div>
+      <div class="cdivider"></div>
+      <div>
+        <div class="cslot-label">Scenario B</div>
+        <div class="cslot-name" id="cb-name">—</div>
+        <div class="cstats">
+          <span class="cstat">Edges: <strong id="cb-e">—</strong></span>
+          <span class="cstat">Congestion: <strong id="cb-c">—</strong></span>
+        </div>
+      </div>
+      <button id="compare-close">✕</button>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="off">
+      <div class="spin"></div>
+      <p id="loading-msg">Loading…</p>
+    </div>
+
+    <!-- Toasts -->
+    <div id="toasts"></div>
+
+    <!-- Tooltip -->
+    <div id="tip">
+      <div class="tip-title" id="tip-title"></div>
+      <div class="tip-body"  id="tip-body"></div>
+      <div class="tip-foot">
+        <button class="tip-ok"   id="tip-ok">Got it</button>
+        <button class="tip-mute" id="tip-mute">Mute tips</button>
+      </div>
+      <div class="tip-arr"></div>
+    </div>
+
+  </div><!-- /map-wrap -->
+</div><!-- /app -->
+
+<!-- ═══════════════ REPORT MODAL ══════════════════════════════ -->
+<div id="report-overlay" class="hidden">
+  <div id="report-modal">
+    <div id="report-toolbar">
+      <span>Planning report</span>
+      <span class="report-toolbar-actions">
+        <button id="report-print" class="btn btn-primary" style="width:auto;padding:7px 16px">🖨 Print / Save PDF</button>
+        <button id="report-close" class="btn btn-ghost" style="width:auto;padding:7px 16px">Close</button>
+      </span>
+    </div>
+    <div id="report-body">
+      <div class="report-head">
+        <div class="report-title">Urban<span>Flow</span> — Planning Report</div>
+        <div class="report-meta" id="report-generated"></div>
+      </div>
+
+      <div class="report-section" id="rs-area">
+        <h3>Study area</h3>
+        <div class="report-grid" id="rs-area-grid"></div>
+      </div>
+
+      <div class="report-section" id="rs-route">
+        <h3>Route optimisation</h3>
+        <div class="report-grid" id="rs-route-grid"></div>
+        <p class="report-empty" id="rs-route-empty">No route has been computed yet.</p>
+      </div>
+
+      <div class="report-section" id="rs-traffic">
+        <h3>Traffic prediction</h3>
+        <div class="report-grid" id="rs-traffic-grid"></div>
+        <p class="report-empty" id="rs-traffic-empty">No congestion prediction has been run yet.</p>
+      </div>
+
+      <div class="report-section" id="rs-compare">
+        <h3>Scenario comparison</h3>
+        <div class="report-grid" id="rs-compare-grid"></div>
+        <p class="report-empty" id="rs-compare-empty">No scenario comparison has been run yet.</p>
+      </div>
+
+      <div class="report-section" id="rs-insights">
+        <h3>Key insights</h3>
+        <div id="rs-insights-list"></div>
+        <p class="report-empty" id="rs-insights-empty">No insights available — run a traffic prediction first.</p>
+      </div>
+
+      <p class="report-footnote">⚠ Traffic predictions use synthetic training data for demonstration purposes only — not real Nairobi traffic counts. Generated by UrbanFlow for planning discussion; not a substitute for a certified traffic study.</p>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="/static/js/map.js"></script>
+<script src="/static/js/api.js"></script>
+<script src="/static/js/simulation.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>

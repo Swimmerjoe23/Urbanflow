@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Sign in — UrbanFlow</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&family=Source+Serif+4:opsz,wght@8..60,600&display=swap"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #FFFFFF; --bg-2: #F6F6F4;
+      --ink: #111111; --ink-2: #3A3A38; --ink-3: #6E6E6B; --ink-4: #9C9C98;
+      --line: #E2E1DC; --accent: #2451E5; --accent-d: #1B3FBE; --r: 4px;
+    }
+    html, body { height: 100%; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--ink); display: flex; flex-direction: column; }
+
+    nav { padding: 18px 32px; border-bottom: 1px solid var(--line); }
+    .nav-logo { font-size: 16px; font-weight: 700; text-decoration: none; color: var(--ink); }
+    .nav-logo span { color: var(--ink-4); font-weight: 400; }
+
+    main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 24px; background: var(--bg-2); }
+    .card {
+      background: #fff; border: 1px solid var(--line); border-radius: 8px;
+      padding: 44px 40px; width: 100%; max-width: 400px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .card-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
+    .card-title { font-family: 'Source Serif 4', serif; font-size: 26px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
+    .card-sub { font-size: 13px; color: var(--ink-3); margin-bottom: 30px; line-height: 1.5; }
+
+    .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+    .field label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.3px; color: var(--ink-4); }
+    .field input {
+      background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--r);
+      color: var(--ink); font-family: 'Inter', sans-serif; font-size: 14px;
+      padding: 11px 14px; width: 100%; transition: border-color 0.15s;
+    }
+    .field input:focus { outline: none; border-color: var(--accent); }
+    .field input::placeholder { color: var(--ink-4); }
+
+    .btn-submit {
+      width: 100%; padding: 12px; background: var(--ink); color: #fff;
+      border: none; border-radius: var(--r); font-size: 14.5px; font-weight: 600;
+      cursor: pointer; transition: background 0.15s; margin-top: 8px;
+    }
+    .btn-submit:hover { background: var(--accent); }
+
+    .alert {
+      background: #FDEDEA; border: 1px solid #F3C5BB; border-radius: var(--r);
+      padding: 10px 14px; font-size: 13px; color: #B43A28; margin-bottom: 20px; display: none;
+    }
+    .alert.show { display: block; }
+
+    .demo-box { margin-top: 24px; background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; }
+    .demo-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--ink-4); margin-bottom: 8px; }
+    .demo-row { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--ink-3); margin-bottom: 4px; }
+    .demo-row:last-child { margin-bottom: 0; }
+    .demo-val { color: var(--ink); font-weight: 500; }
+    .demo-fill {
+      background: none; border: none; font-size: 10.5px; color: var(--accent); cursor: pointer;
+      padding: 2px 6px; border-radius: var(--r); text-transform: uppercase; letter-spacing: 0.3px; font-weight: 600;
+    }
+    .demo-fill:hover { background: rgba(36,81,229,0.08); }
+
+    .back-link { text-align: center; margin-top: 22px; font-size: 12px; color: var(--ink-4); }
+    .back-link a { color: var(--ink-3); text-decoration: none; }
+    .back-link a:hover { color: var(--ink); }
+  </style>
+</head>
+<body>
+
+  <nav><a href="/" class="nav-logo">Urban<span>Flow</span></a></nav>
+
+  <main>
+    <div class="card">
+      <p class="card-eyebrow">Nairobi Road Planner</p>
+      <h1 class="card-title">Welcome back</h1>
+      <p class="card-sub">Sign in to access the road network simulator.</p>
+
+      {% if error %}
+      <div class="alert show">{{ error }}</div>
+      {% endif %}
+
+      <form method="POST" action="/login">
+        <div class="field">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" placeholder="Enter username" autocomplete="username" required/>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" placeholder="Enter password" autocomplete="current-password" required/>
+        </div>
+        <button type="submit" class="btn-submit">Sign in</button>
+      </form>
+
+      <div class="demo-box">
+        <div class="demo-label">Demo credentials</div>
+        <div class="demo-row"><span>Username</span><span class="demo-val">demo</span></div>
+        <div class="demo-row"><span>Password</span><span class="demo-val">urbanflow</span><button class="demo-fill" id="fill-demo">Use</button></div>
+      </div>
+
+      <div class="back-link">← <a href="/">Back to home</a></div>
+    </div>
+  </main>
+
+  <script>
+    document.getElementById('fill-demo').addEventListener('click', () => {
+      document.getElementById('username').value = 'demo';
+      document.getElementById('password').value = 'urbanflow';
+    });
+  </script>
+
+</body>
+</html>

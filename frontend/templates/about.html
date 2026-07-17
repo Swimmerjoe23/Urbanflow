@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>About — UrbanFlow</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #FFFFFF; --bg-2: #F6F6F4;
+      --ink: #111111; --ink-2: #3A3A38; --ink-3: #6E6E6B; --ink-4: #9C9C98;
+      --line: #E2E1DC; --accent: #2451E5; --r: 4px; --r-lg: 8px;
+    }
+    html, body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--ink); min-height: 100%; }
+
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 48px; border-bottom: 1px solid var(--line);
+      position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,0.95); backdrop-filter: blur(8px);
+    }
+    .nav-logo { font-size: 16px; font-weight: 700; text-decoration: none; color: var(--ink); }
+    .nav-logo span { color: var(--ink-4); font-weight: 400; }
+    .nav-right { display: flex; gap: 8px; align-items: center; }
+    .nav-link { font-size: 13px; color: var(--ink-3); text-decoration: none; padding: 6px 10px; }
+    .nav-link:hover { color: var(--ink); }
+    .nav-btn { background: var(--ink); color: #fff; border: none; border-radius: var(--r); padding: 8px 16px; font-size: 13px; font-weight: 500; cursor: pointer; text-decoration: none; transition: background 0.15s; }
+    .nav-btn:hover { background: var(--accent); }
+
+    main { max-width: 740px; margin: 0 auto; padding: 72px 32px 100px; }
+
+    .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
+    h1 { font-family: 'Source Serif 4', serif; font-size: clamp(32px, 5vw, 48px); font-weight: 600; color: var(--ink); letter-spacing: -0.5px; line-height: 1.1; margin-bottom: 20px; }
+    .lead { font-size: 16px; color: var(--ink-3); line-height: 1.7; margin-bottom: 52px; }
+
+    .divider { height: 1px; background: var(--line); margin: 44px 0; }
+
+    h2 { font-size: 18px; font-weight: 600; color: var(--ink); margin-bottom: 14px; }
+    p { font-size: 13.5px; color: var(--ink-3); line-height: 1.75; margin-bottom: 14px; }
+    p:last-child { margin-bottom: 0; }
+
+    .stack { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    .stack th { font-size: 10.5px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; color: var(--ink-4); text-align: left; padding: 8px 14px; border-bottom: 1px solid var(--line); }
+    .stack td { font-size: 13px; color: var(--ink-2); padding: 10px 14px; border-bottom: 1px solid var(--line); }
+    .stack td:first-child { color: var(--ink-3); font-size: 12.5px; }
+    .stack tr:last-child td { border-bottom: none; }
+
+    .disclaimer { background: var(--bg-2); border-left: 3px solid var(--accent); border-radius: var(--r); padding: 20px 22px; margin-top: 16px; }
+    .disclaimer-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+    .disclaimer p { font-size: 13px; color: var(--ink-3); margin-bottom: 0; }
+    .disclaimer p + p { margin-top: 8px; }
+
+    .team-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); margin-top: 16px; }
+    .member { background: #fff; padding: 18px 20px; }
+    .member-name { font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+    .member-role { font-size: 11px; color: var(--ink-3); }
+
+    footer { border-top: 1px solid var(--line); padding: 24px 48px; font-size: 11.5px; color: var(--ink-4); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+    footer a { color: var(--ink-3); text-decoration: none; }
+    footer a:hover { color: var(--ink); }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="/" class="nav-logo">Urban<span>Flow</span></a>
+    <div class="nav-right">
+      <a href="/" class="nav-link">Home</a>
+      <a href="/app" class="nav-btn">Open planner</a>
+    </div>
+  </nav>
+
+  <main>
+    <p class="eyebrow">About this project</p>
+    <h1>UrbanFlow</h1>
+    <p class="lead">
+      An interactive city planning simulator and road network optimisation tool built for Nairobi, Kenya.
+      Developed as a class project to explore graph algorithms, traffic modelling, and urban data visualisation.
+    </p>
+
+    <h2>What it does</h2>
+    <p>
+      UrbanFlow lets you load real road networks from OpenStreetMap, compute optimal routes using Dijkstra
+      and A* algorithms, predict traffic congestion by time of day, animate vehicle simulations, and
+      compare alternative infrastructure scenarios — all in the browser with no specialist training.
+    </p>
+    <p>
+      The tool is focused on Nairobi but works with any location on OpenStreetMap. Road data is fetched live,
+      so the network reflects current real-world geometry.
+    </p>
+
+    <div class="divider"></div>
+
+    <h2>Tech stack</h2>
+    <table class="stack">
+      <thead><tr><th>Layer</th><th>Technology</th></tr></thead>
+      <tbody>
+        <tr><td>Backend</td><td>Python 3 · Flask</td></tr>
+        <tr><td>Road data</td><td>OSMnx — OpenStreetMap</td></tr>
+        <tr><td>Graph algorithms</td><td>NetworkX (Dijkstra, A*)</td></tr>
+        <tr><td>Traffic model</td><td>scikit-learn — Ridge regression</td></tr>
+        <tr><td>Database</td><td>SQLite (scenario storage)</td></tr>
+        <tr><td>Frontend</td><td>Vanilla HTML · CSS · JavaScript</td></tr>
+        <tr><td>Map</td><td>Leaflet.js · OpenStreetMap tiles</td></tr>
+      </tbody>
+    </table>
+
+    <div class="divider"></div>
+
+    <h2>Data disclaimer</h2>
+    <div class="disclaimer">
+      <div class="disclaimer-label">Important — synthetic traffic data</div>
+      <p>
+        The <strong style="color:var(--ink)">traffic congestion predictions</strong> in this tool are generated
+        by a machine learning model trained on <strong style="color:var(--ink)">synthetic data</strong> — not real
+        Nairobi traffic counts. Congestion profiles are based on typical urban patterns (morning/evening peaks,
+        weekend reductions) and are intended for demonstration purposes only.
+      </p>
+      <p>
+        Road geometry and network topology come from OpenStreetMap and reflect real-world data, but may be
+        incomplete or out of date for some areas.
+      </p>
+    </div>
+
+    <div class="divider"></div>
+
+    <h2>Project team</h2>
+    <div class="team-grid">
+      <div class="member"><div class="member-name">John</div><div class="member-role">Lead developer</div></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <h2>API reference</h2>
+    <p>The backend exposes a REST API used by the frontend:</p>
+    <table class="stack">
+      <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>POST</td><td>/api/network/fetch</td><td>Fetch OSM road network for a bounding box</td></tr>
+        <tr><td>POST</td><td>/api/routing/dijkstra</td><td>Shortest path via Dijkstra</td></tr>
+        <tr><td>POST</td><td>/api/routing/astar</td><td>Shortest path via A*</td></tr>
+        <tr><td>POST</td><td>/api/traffic/predict</td><td>Congestion prediction for hour + day</td></tr>
+        <tr><td>GET</td><td>/api/scenarios/</td><td>List saved scenarios</td></tr>
+        <tr><td>POST</td><td>/api/scenarios/</td><td>Save current network as a scenario</td></tr>
+        <tr><td>DELETE</td><td>/api/scenarios/&lt;id&gt;</td><td>Delete a scenario</td></tr>
+      </tbody>
+    </table>
+  </main>
+
+  <footer>
+    <span>UrbanFlow · Class Project · 2024</span>
+    <a href="/">← Back to home</a>
+  </footer>
+
+</body>
+</html>

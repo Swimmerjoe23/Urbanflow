@@ -41,6 +41,7 @@ const API = (() => {
 
   return {
     fetchNetwork: (bbox)                  => _post("/network/fetch", bbox),
+    searchPlaces: (query)                 => _post("/network/geocode", { query }),
     routeDijkstra: (payload)              => _post("/routing/dijkstra", payload),
     routeAstar: (payload)                 => _post("/routing/astar", payload),
     predictTraffic: (graph, hour, day)    => _post("/traffic/predict", { graph, hour, day_of_week: day }),

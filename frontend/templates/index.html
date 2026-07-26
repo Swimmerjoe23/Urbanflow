@@ -56,6 +56,10 @@
         <!-- Load -->
         <div class="panel">
           <div class="panel-label">Load network</div>
+          <div class="search-wrap">
+            <input type="text" id="area-search" placeholder="Search a place… e.g. Njiru" autocomplete="off"/>
+            <div id="area-suggest" class="suggest-dropdown hidden"></div>
+          </div>
           <div id="area-chips">
             <span class="achip" data-bbox="-1.2921,36.8219,-1.2721,36.8419">CBD</span>
             <span class="achip" data-bbox="-1.2634,36.7896,-1.2434,36.8096">Westlands</span>
@@ -206,9 +210,30 @@
       <!-- ── COMPARE ───────────────────────────────────────────── -->
       <div id="mode-compare" style="display:none">
         <div class="panel">
-          <div class="panel-label">Save scenario</div>
+          <div class="panel-label">Load network</div>
+          <div class="search-wrap">
+            <input type="text" id="area-search-cmp" placeholder="Search a place… e.g. Njiru" autocomplete="off"/>
+            <div id="area-suggest-cmp" class="suggest-dropdown hidden"></div>
+          </div>
+          <div id="area-chips-cmp">
+            <span class="achip" data-bbox="-1.2921,36.8219,-1.2721,36.8419">CBD</span>
+            <span class="achip" data-bbox="-1.2634,36.7896,-1.2434,36.8096">Westlands</span>
+            <span class="achip" data-bbox="-1.3100,36.7700,-1.2900,36.7900">Kibera</span>
+            <span class="achip" data-bbox="-1.2500,36.8500,-1.2300,36.8700">Kasarani</span>
+            <span class="achip" data-bbox="-1.3200,36.8200,-1.3000,36.8400">South B</span>
+            <span class="achip" data-bbox="-1.2700,36.8100,-1.2500,36.8300">Parklands</span>
+          </div>
+          <p class="hint">Or draw a custom box — click <strong style="color:var(--rust-l)">Draw</strong> then drag on the map.</p>
+          <div class="btn-row">
+            <button id="btn-draw-cmp" class="btn btn-ghost">Draw</button>
+            <button id="btn-fetch-cmp" class="btn btn-primary" disabled>Fetch</button>
+          </div>
+          <div id="st-load-cmp" class="status"></div>
+
+          <div class="panel-divider"></div>
+
           <div class="field"><input type="text" id="sc-name" placeholder="Scenario name…"/></div>
-          <button id="btn-save" class="btn btn-primary" disabled>Save current network</button>
+          <button id="btn-save" class="btn btn-primary" disabled>Save as scenario</button>
         </div>
         <div class="panel">
           <div class="panel-label">Saved scenarios</div>

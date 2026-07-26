@@ -38,9 +38,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const d=document.createElement('div'); d.className=`toast ${cls}`; d.textContent=msg;
     $('toasts').appendChild(d); setTimeout(()=>d.remove(), 3000);
   };
+  const setBtn = (id, disabled, reason='') => {
+    const el = $(id);
+    if (!el) return;
+    el.disabled = disabled;
+    el.title = disabled ? reason : '';
+  };
+  const updateRouteButton = () => {
+    if (!graph) { setBtn('btn-route', true, 'Load a network first'); return; }
+    if (!origin || !dest) { setBtn('btn-route', true, 'Click two points on the map to set an origin and destination'); return; }
+    setBtn('btn-route', false);
+  };
   const enableMain = () => {
-    ['btn-route','btn-traffic','btn-save','btn-sim-go']
-      .forEach(id => $(id).disabled = !graph);
+    const reason = graph ? '' : 'Load a network first';
+    ['btn-traffic','btn-save','btn-sim-go'].forEach(id => setBtn(id, !graph, reason));
+    updateRouteButton();
   };
 
   // ── welcome ──────────────────────────────────────────────
@@ -115,40 +127,54 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   });
 
+  // ── load network — shared between the Analyse and Compare tabs ──
+  const stLoad = (msg, cls='') => {
+    st('st-load', msg, cls);
+    if ($('st-load-cmp')) st('st-load-cmp', msg, cls);
+  };
+  const setFetchEnabled = (enabled) => {
+    const reason = 'Pick an area, search a place, or draw a box first';
+    setBtn('btn-fetch', !enabled, reason);
+    if ($('btn-fetch-cmp')) setBtn('btn-fetch-cmp', !enabled, reason);
+  };
+
   // ── area chips ────────────────────────────────────────────
   let selectedAreaName = 'Custom area';
   document.querySelectorAll('.achip').forEach(c => {
     c.onclick = () => {
       document.querySelectorAll('.achip').forEach(x=>x.classList.remove('on'));
-      c.classList.add('on');
+      document.querySelectorAll(`.achip[data-bbox="${c.dataset.bbox}"]`).forEach(x=>x.classList.add('on'));
       selectedAreaName = c.textContent;
       const [s,w,n,e] = c.dataset.bbox.split(',').map(Number);
       MapManager.flyToBbox(s,w,n,e);
-      $('btn-fetch').disabled = false;
+      setFetchEnabled(true);
       dismissWelcome();
-      st('st-load', `Area: ${c.textContent} — click Fetch`, 'info');
+      stLoad(`Area: ${c.textContent} — click Fetch`, 'info');
     };
   });
 
   // ── draw bbox ─────────────────────────────────────────────
-  $('btn-draw').onclick = () => {
+  const startDraw = () => {
     document.querySelectorAll('.achip').forEach(x=>x.classList.remove('on'));
     selectedAreaName = 'Custom area';
     MapManager.startBboxDraw();
     dismissWelcome();
-    st('st-load','Draw a rectangle on the map…','info');
+    stLoad('Draw a rectangle on the map…','info');
   };
+  $('btn-draw').onclick = startDraw;
+  if ($('btn-draw-cmp')) $('btn-draw-cmp').onclick = startDraw;
+
   document.addEventListener('bbox-drawn', () => {
-    $('btn-fetch').disabled = false;
-    st('st-load','Box drawn — click Fetch','info');
+    setFetchEnabled(true);
+    stLoad('Box drawn — click Fetch','info');
     showTip('bbox-drawn');
   });
 
   // ── fetch network ─────────────────────────────────────────
-  $('btn-fetch').onclick = async () => {
+  const fetchNetwork = async () => {
     const bbox = MapManager.getBbox(); if (!bbox) return;
     load('Contacting OpenStreetMap — this can take 10–20 seconds…');
-    st('st-load','');
+    stLoad('');
     const loadingMsgs = [
       'Downloading road graph…',
       'Processing nodes and edges…',
@@ -163,7 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
       graph = await API.fetchNetwork(bbox);
       activeTypes = new Set();
       MapManager.renderNetwork(graph, activeTypes);
-      st('st-load', `${graph.nodes.length} nodes · ${graph.edges.length} edges`, 'ok');
+      stLoad(`${graph.nodes.length} nodes · ${graph.edges.length} edges`, 'ok');
       enableMain();
       buildTypePanel(graph);
       lastArea = { name: selectedAreaName, bbox, nodeCount: graph.nodes.length, edgeCount: graph.edges.length };
@@ -175,11 +201,109 @@ document.addEventListener('DOMContentLoaded', () => {
       await loadScenarios();
     } catch(e) {
       const msg = friendlyError(e.message);
-      st('st-load', msg, 'err');
+      stLoad(msg, 'err');
       toast(msg, 'err');
     }
     finally { clearInterval(msgTimer); unload(); }
   };
+  $('btn-fetch').onclick = fetchNetwork;
+  if ($('btn-fetch-cmp')) $('btn-fetch-cmp').onclick = fetchNetwork;
+
+  // ── search a place by name — instant local matches + live suggestions ──
+  const PRESET_AREAS = [...document.querySelectorAll('#area-chips .achip')].map(c => ({
+    name: c.textContent.trim(),
+    bbox: c.dataset.bbox.split(',').map(Number), // [south, west, north, east]
+  }));
+
+  const selectPlace = (inputId, dropdownId, place) => {
+    document.querySelectorAll('.achip').forEach(x=>x.classList.remove('on'));
+    document.querySelectorAll(`.achip[data-bbox="${place.bbox.join(',')}"]`).forEach(x=>x.classList.add('on'));
+    selectedAreaName = place.name;
+    MapManager.flyToBbox(...place.bbox);
+    setFetchEnabled(true);
+    dismissWelcome();
+    stLoad(`Selected: ${place.name} — click Fetch`, 'info');
+    $(inputId).value = place.name;
+    hideSuggestions(dropdownId);
+  };
+
+  const hideSuggestions = (dropdownId) => {
+    const dd = $(dropdownId);
+    dd.classList.add('hidden');
+    dd.innerHTML = '';
+  };
+
+  const showSuggestions = (inputId, dropdownId, items) => {
+    const dd = $(dropdownId);
+    dd.innerHTML = items.map((it, i) =>
+      `<div class="suggest-item" data-i="${i}">${it.name}<span class="suggest-source">${it.source}</span></div>`
+    ).join('');
+    dd.classList.remove('hidden');
+    [...dd.children].forEach((el, i) => { el.onclick = () => selectPlace(inputId, dropdownId, items[i]); });
+  };
+
+  // Non-clickable status row, for "searching…" / "no results" / "search failed" —
+  // so the dropdown never just silently does nothing.
+  const showMessage = (dropdownId, text) => {
+    const dd = $(dropdownId);
+    dd.innerHTML = `<div class="suggest-empty">${text}</div>`;
+    dd.classList.remove('hidden');
+  };
+
+  const searchDebounce = {};
+  const wireSearchInput = (inputId, dropdownId) => {
+    const input = $(inputId);
+    if (!input) return;
+
+    input.addEventListener('input', () => {
+      clearTimeout(searchDebounce[inputId]);
+      const q = input.value.trim();
+      if (!q) { hideSuggestions(dropdownId); return; }
+
+      // instant local matches against the preset neighbourhoods, no network needed
+      const local = PRESET_AREAS
+        .filter(a => a.name.toLowerCase().includes(q.toLowerCase()))
+        .map(a => ({ name: a.name, bbox: a.bbox, source: 'preset' }));
+
+      if (q.length < 3) {
+        if (local.length) showSuggestions(inputId, dropdownId, local);
+        else hideSuggestions(dropdownId);
+        return;
+      }
+
+      // show what we already know instantly, so the dropdown is never empty-with-no-explanation
+      if (local.length) showSuggestions(inputId, dropdownId, local);
+      else showMessage(dropdownId, 'Searching…');
+
+      searchDebounce[inputId] = setTimeout(async () => {
+        try {
+          const { results } = await API.searchPlaces(q);
+          if (input.value.trim() !== q) return; // input changed while we were waiting — stale response
+          const remote = (results || [])
+            .filter(r => !local.some(l => l.name.toLowerCase() === (r.display_name || '').toLowerCase()))
+            .map(r => ({ name: r.display_name, bbox: [r.south, r.west, r.north, r.east], source: 'OpenStreetMap' }));
+          const combined = [...local, ...remote];
+          if (combined.length) showSuggestions(inputId, dropdownId, combined);
+          else showMessage(dropdownId, `No places found for "${q}" — try a different name, or draw a box instead.`);
+        } catch (e) {
+          if (input.value.trim() === q) {
+            if (local.length) showSuggestions(inputId, dropdownId, local);
+            else showMessage(dropdownId, 'Search failed — try again, or draw a box instead.');
+          }
+        }
+      }, 350);
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') hideSuggestions(dropdownId);
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!input.contains(e.target) && !$(dropdownId).contains(e.target)) hideSuggestions(dropdownId);
+    });
+  };
+  wireSearchInput('area-search', 'area-suggest');
+  wireSearchInput('area-search-cmp', 'area-suggest-cmp');
 
   // ── road type panel ───────────────────────────────────────
   const RCOL = { motorway:'#ef4444', trunk:'#f97316', primary:'#eab308',
@@ -227,14 +351,13 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (!dest) {
       dest={lat:ll.lat, lon:ll.lng};
       $('wp-b').innerHTML=`Destination — <span class="wp-val">${ll.lat.toFixed(5)}, ${ll.lng.toFixed(5)}</span>`;
-      $('btn-route').disabled=false;
     } else {
       origin={lat:ll.lat,lon:ll.lng}; dest=null;
-      $('btn-route').disabled=true;
       $('wp-a').innerHTML=`Origin — <span class="wp-val">${ll.lat.toFixed(5)}, ${ll.lng.toFixed(5)}</span>`;
       $('wp-b').innerHTML=`Destination — <span class="wp-val">not set</span>`;
       st('st-route',''); MapManager.clearRoute();
     }
+    updateRouteButton();
   });
 
   $('btn-route').onclick = async () => {
@@ -256,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
     finally { unload(); }
   };
 
-  $('btn-clear-route').onclick = ()=>{ MapManager.clearRoute(); origin=dest=null; $('btn-route').disabled=true; $('btn-clear-route').disabled=true; $('wp-a').innerHTML='Origin — <span class="wp-val">not set</span>'; $('wp-b').innerHTML='Destination — <span class="wp-val">not set</span>'; st('st-route',''); };
+  $('btn-clear-route').onclick = ()=>{ MapManager.clearRoute(); origin=dest=null; updateRouteButton(); $('btn-clear-route').disabled=true; $('wp-a').innerHTML='Origin — <span class="wp-val">not set</span>'; $('wp-b').innerHTML='Destination — <span class="wp-val">not set</span>'; st('st-route',''); };
 
   // ── traffic ───────────────────────────────────────────────
   $('hour').oninput = ()=>{ $('hour-val').textContent=String(parseInt($('hour').value)).padStart(2,'0')+':00'; };
@@ -391,14 +514,14 @@ document.addEventListener('DOMContentLoaded', () => {
       list.innerHTML='';
       sc.forEach(s=>{
         const d=document.createElement('div'); d.className='sc-item';
-        d.innerHTML=`<span class="sc-name">${s.name}</span><span class="sc-actions"><button class="sc-ren" onclick="renSc(${s.id},'${s.name.replace(/'/g,"\\'")}')">✎</button><button class="sc-load" onclick="loadSc(${s.id})">Load</button><button class="sc-del" onclick="delSc(${s.id})">✕</button></span>`;
+        d.innerHTML=`<span class="sc-name">${s.name}</span><span class="sc-actions"><button class="sc-ren" title="Rename" onclick="renSc(${s.id},'${s.name.replace(/'/g,"\\'")}')">✎</button><button class="sc-load" onclick="loadSc(${s.id})">Load</button><button class="sc-del" title="Delete" onclick="delSc(${s.id})">✕</button></span>`;
         list.appendChild(d);
       });
       ['cmp-a','cmp-b'].forEach(id=>{
         const sel=$(id),cur=sel.value; sel.innerHTML='<option value="">— select —</option>';
         sc.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;sel.appendChild(o);}); sel.value=cur;
       });
-      $('btn-cmp').disabled=sc.length<2;
+      setBtn('btn-cmp', sc.length<2, 'Save at least two scenarios first');
     } catch(_){}
   }
 
@@ -406,7 +529,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const name=$('sc-name').value.trim();
     const err=validateScenarioName(name); if (err){toast(err,'err');return;}
     if (!graph) return;
-    try { await API.saveScenario(name,MapManager.getBbox(),graph); $('sc-name').value=''; toast(`Saved: ${name}`,'ok'); await loadScenarios(); }
+    const b = MapManager.getBbox();
+    const bboxArr = b ? [b.south, b.west, b.north, b.east] : null;
+    try { await API.saveScenario(name,bboxArr,graph); $('sc-name').value=''; toast(`Saved: ${name}`,'ok'); await loadScenarios(); }
     catch(e){toast(e.message,'err');}
   };
 
@@ -441,6 +566,8 @@ document.addEventListener('DOMContentLoaded', () => {
   $('compare-close').onclick=()=>$('compare-bar').classList.add('hidden');
 
   loadScenarios();
+  enableMain();
+  setFetchEnabled(false);
 
   // ── report ────────────────────────────────────────────────
   function stat(label, value) {

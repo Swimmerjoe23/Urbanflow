@@ -333,6 +333,53 @@ input[type=range] {
 }
 .rchip-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--chip-c); }
 
+/* ─── PLACE SEARCH ───────────────────────────────────────────── */
+.search-wrap { position: relative; margin-bottom: 10px; }
+.suggest-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0; right: 0;
+  background: var(--chrome-bg-2);
+  border: 1px solid var(--chrome-border);
+  border-radius: var(--r);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 50;
+}
+.suggest-dropdown.hidden { display: none; }
+.suggest-item {
+  padding: 8px 10px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--chrome-fg-2);
+  cursor: pointer;
+  border-bottom: 1px solid var(--chrome-border);
+}
+.suggest-item:last-child { border-bottom: none; }
+.suggest-item:hover { background: var(--chrome-hover); color: var(--chrome-fg); }
+.suggest-item .suggest-source {
+  display: block;
+  font-size: 9.5px;
+  color: var(--chrome-fg-4);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-top: 1px;
+}
+.suggest-empty {
+  padding: 8px 10px;
+  font-size: 11.5px;
+  font-style: italic;
+  color: var(--chrome-fg-4);
+  line-height: 1.4;
+}
+
+/* ─── PANEL DIVIDER (splits one panel into sub-sections) ──────── */
+.panel-divider {
+  height: 1px;
+  background: var(--chrome-border);
+  margin: 16px 0;
+}
+
 /* ─── NAIROBI AREAS ──────────────────────────────────────────── */
 #area-chips {
   display: flex;

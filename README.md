@@ -17,7 +17,7 @@ urbanflow/
 │   ├── models/
 │   │   └── database.py           # SQLite schema + helpers
 │   ├── routes/
-│   │   ├── network.py            # POST /api/network/fetch
+│   │   ├── network.py            # POST /api/network/fetch|geocode
 │   │   ├── routing.py            # POST /api/routing/dijkstra|astar
 │   │   ├── traffic.py            # POST /api/traffic/predict
 │   │   └── scenarios.py          # CRUD /api/scenarios/
@@ -79,7 +79,7 @@ python -m pytest
 
 ## How to Use
 
-1. **Load Road Network** — click *Draw Bounding Box*, drag a rectangle over the area you want on the map (e.g. Nairobi CBD), then click *Fetch Network*. The road graph loads from OpenStreetMap.
+1. **Load Road Network** — three ways to pick an area: search for a place by name (e.g. "Njiru, Nairobi"), click a preset neighbourhood chip, or draw a custom box on the map. Then click *Fetch* to load the road graph from OpenStreetMap.
 
 2. **Route Optimisation** — click any node on the map to set your **origin**, then click another for the **destination**. Choose Dijkstra or A*, select distance or travel time, and click *Compute Route*. The optimal path is highlighted in yellow.
 
@@ -104,6 +104,7 @@ python -m pytest
 | Method | URL | Description |
 |--------|-----|-------------|
 | POST | `/api/network/fetch` | Fetch OSM road network for a bounding box |
+| POST | `/api/network/geocode` | Search for places by name (e.g. "Njiru"), returns candidate bounding boxes for autocomplete |
 | POST | `/api/routing/dijkstra` | Shortest path via Dijkstra |
 | POST | `/api/routing/astar` | Shortest path via A* |
 | POST | `/api/traffic/predict` | Congestion prediction for hour + day |

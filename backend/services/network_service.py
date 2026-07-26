@@ -1,6 +1,44 @@
 import osmnx as ox
 import networkx as nx
 import json
+import requests
+
+_NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
+_USER_AGENT = "OnlineRoadNetworkTrafficPlanner-CapstoneProject/1.0"
+
+
+def search_places(query: str, limit: int = 6) -> list:
+    """
+    Search for places by name using OSM's Nominatim geocoder, biased to
+    Kenya since this tool is built around Nairobi. Returns a list of
+    candidate matches (each with its own bounding box) for autocomplete
+    style suggestions, rather than resolving to a single "best" place.
+    """
+    resp = requests.get(
+        _NOMINATIM_URL,
+        params={
+            "q": query,
+            "format": "json",
+            "limit": limit,
+            "addressdetails": 0,
+            "countrycodes": "ke",
+        },
+        headers={"User-Agent": _USER_AGENT},
+        timeout=8,
+    )
+    resp.raise_for_status()
+
+    places = []
+    for r in resp.json():
+        try:
+            south, north, west, east = (float(v) for v in r["boundingbox"])
+        except (KeyError, ValueError, TypeError):
+            continue
+        places.append({
+            "south": south, "west": west, "north": north, "east": east,
+            "display_name": r.get("display_name", query),
+        })
+    return places
 
 
 def fetch_network(south: float, west: float, north: float, east: float) -> dict:

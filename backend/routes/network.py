@@ -1,7 +1,10 @@
+import logging
+
 from flask import Blueprint, request, jsonify
 from backend.services.network_service import fetch_network
 
 network_bp = Blueprint("network", __name__)
+logger = logging.getLogger(__name__)
 
 
 @network_bp.route("/fetch", methods=["POST"])
@@ -25,5 +28,6 @@ def fetch():
             east=float(body["east"]),
         )
         return jsonify(graph)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        logger.exception("Failed to fetch network for bbox %s", body)
+        return jsonify({"error": "Failed to fetch the road network for this area."}), 500

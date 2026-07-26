@@ -1,7 +1,7 @@
 /* map.js — Leaflet map setup and layer management */
 
 const MapManager = (() => {
-  let map, bboxLayer, networkLayer, routeLayer, trafficLayer, editLayer, labelLayer, insightLayer;
+  let map, baseLayer, bboxLayer, networkLayer, routeLayer, trafficLayer, editLayer, labelLayer, insightLayer;
   let bboxRect = null;
   let drawingBbox = false;
   let bboxStart = null;
@@ -23,7 +23,8 @@ const MapManager = (() => {
   function init() {
     map = L.map('map', { zoomControl: true }).setView([-1.286389, 36.817223], 14);
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    const theme = document.documentElement.getAttribute('data-theme') === 'light' ? 'light_all' : 'dark_all';
+    baseLayer = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${theme}/{z}/{x}/{y}{r}.png`, {
       attribution: '© OpenStreetMap contributors © CARTO',
       subdomains: 'abcd', maxZoom: 19,
     }).addTo(map);
@@ -79,13 +80,15 @@ const MapManager = (() => {
   function getBbox() { return bboxRect; }
 
   // ── Network rendering ────────────────────────────────────────
-  function renderNetwork(graphData, colourByType = false) {
+  // activeTypes: a Set of highway-type strings to isolate, or empty/undefined to show everything.
+  function renderNetwork(graphData, activeTypes = null) {
     _graphData = graphData;
     networkLayer.clearLayers();
     trafficLayer.clearLayers();
     routeLayer.clearLayers();
     labelLayer.clearLayers();
 
+    const filtering = !!(activeTypes && activeTypes.size);
     const nodeMap = {};
     graphData.nodes.forEach(n => { nodeMap[n.id] = [n.lat, n.lon]; });
 
@@ -96,17 +99,20 @@ const MapManager = (() => {
 
       let hw = edge.highway;
       if (Array.isArray(hw)) hw = hw[0];
-      const colour = colourByType
+      hw = hw || 'unclassified';
+      if (filtering && !activeTypes.has(hw)) return;
+
+      const colour = filtering
         ? (ROAD_COLOURS[hw] || ROAD_COLOURS.unclassified)
         : 'rgba(148,163,184,0.6)';
 
       const line = L.polyline([from, to], {
-        color: colour, weight: colourByType ? 3 : 2, opacity: .8,
+        color: colour, weight: filtering ? 3 : 2, opacity: .8,
       }).addTo(networkLayer);
 
       const label = edge.name
-        ? `<b>${edge.name}</b><br>${hw || 'road'} · ${edge.speed_kph || 50} kph`
-        : `${hw || 'road'} · ${edge.speed_kph || 50} kph`;
+        ? `<b>${edge.name}</b><br>${hw} · ${edge.speed_kph || 50} kph`
+        : `${hw} · ${edge.speed_kph || 50} kph`;
       line.bindTooltip(label, { sticky: true, className: 'road-label-tag' });
 
       if (_edgeClickCallback) {
@@ -118,9 +124,9 @@ const MapManager = (() => {
     });
   }
 
-  function rerenderWithTypes(colourByType, colours) {
+  function rerenderWithTypes(activeTypes, colours) {
     if (colours) Object.assign(ROAD_COLOURS, colours);
-    if (_graphData) renderNetwork(_graphData, colourByType);
+    if (_graphData) renderNetwork(_graphData, activeTypes);
   }
 
   // ── Traffic overlay ──────────────────────────────────────────
@@ -206,6 +212,12 @@ const MapManager = (() => {
     line.setStyle({ color: colour, weight: 5 });
   }
 
+  function setTheme(theme) {
+    if (!baseLayer) return;
+    const tiles = theme === 'light' ? 'light_all' : 'dark_all';
+    baseLayer.setUrl(`https://{s}.basemaps.cartocdn.com/${tiles}/{z}/{x}/{y}{r}.png`);
+  }
+
   function onMapClick(cb)      { _clickCallback = cb; }
   function onEdgeClick(cb)     { _edgeClickCallback = cb; }
   function getGraphData()      { return _graphData; }
@@ -213,7 +225,7 @@ const MapManager = (() => {
   function getRoadColours()    { return ROAD_COLOURS; }
 
   return {
-    init, startBboxDraw, getBbox,
+    init, setTheme, startBboxDraw, getBbox,
     renderNetwork, rerenderWithTypes,
     renderTraffic, clearTraffic,
     renderInsights, clearInsights, setInsightsVisible,

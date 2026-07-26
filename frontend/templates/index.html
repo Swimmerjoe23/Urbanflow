@@ -3,10 +3,15 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>UrbanFlow — Nairobi Road Planner</title>
+  <title>Online Road Network & Traffic Planner — Nairobi</title>
+  <script>
+    (function () {
+      var saved = localStorage.getItem('theme');
+      var theme = saved || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap"/>
   <link rel="stylesheet" href="/static/css/main.css"/>
 </head>
 <body>
@@ -16,12 +21,13 @@
   <aside id="sidebar">
 
     <div id="logo">
-      <div id="logo-wordmark">Urban<span>Flow</span></div>
-      <div id="logo-sub">Nairobi Road Planner</div>
+      <div id="logo-wordmark">Road &amp; Traffic Planner</div>
+      <div id="logo-sub">Nairobi</div>
       <div id="logo-nav">
         <button id="btn-report" class="logo-nav-link" style="background:none;border:none;font-family:inherit;cursor:pointer;padding:0">Report</button>
         <a href="/about" target="_blank" class="logo-nav-link">About</a>
         <a href="/logout" class="logo-nav-link">Sign out</a>
+        <button id="btn-theme" class="logo-nav-link" type="button" style="background:none;border:none;font-family:inherit;cursor:pointer;padding:0" title="Toggle dark/light mode">◐</button>
       </div>
     </div>
 
@@ -49,7 +55,7 @@
 
         <!-- Load -->
         <div class="panel">
-          <div class="panel-label">01 · Load network</div>
+          <div class="panel-label">Load network</div>
           <div id="area-chips">
             <span class="achip" data-bbox="-1.2921,36.8219,-1.2721,36.8419">CBD</span>
             <span class="achip" data-bbox="-1.2634,36.7896,-1.2434,36.8096">Westlands</span>
@@ -74,7 +80,7 @@
 
         <!-- Route -->
         <div class="panel">
-          <div class="panel-label">02 · Route</div>
+          <div class="panel-label">Route</div>
           <p class="hint">Click two points on the map to set origin and destination.</p>
           <div class="field">
             <label>Algorithm</label>
@@ -107,7 +113,7 @@
 
         <!-- Traffic -->
         <div class="panel">
-          <div class="panel-label">03 · Traffic prediction</div>
+          <div class="panel-label">Traffic prediction</div>
           <div class="slider-row">
             <label>Hour</label>
             <input type="range" id="hour" min="0" max="23" value="8"/>
@@ -131,12 +137,12 @@
             <span><span class="lpip" style="background:var(--amber)"></span>Moderate</span>
             <span><span class="lpip" style="background:var(--rust)"></span>Congested</span>
           </div>
-          <p class="synthetic-note">⚠ Predictions use synthetic training data for demonstration purposes only — not real Nairobi traffic counts.</p>
+          <p class="synthetic-note">Predictions use synthetic training data for demonstration purposes only — not real Nairobi traffic counts.</p>
         </div>
 
         <!-- Simulation -->
         <div class="panel">
-          <div class="panel-label">04 · Simulate vehicles</div>
+          <div class="panel-label">Simulate vehicles</div>
           <div class="slider-row">
             <label>Count</label>
             <input type="range" id="sim-n" min="5" max="120" value="50"/>
@@ -227,16 +233,9 @@
     <!-- Welcome -->
     <div id="welcome">
       <div class="wcard">
-        <div class="wcard-tag">Nairobi · Kenya</div>
-        <div class="wcard-title">Plan roads<br/><span>with confidence</span></div>
-        <div class="wcard-body">Load a real road network, simulate traffic, plan routes and compare infrastructure scenarios — no specialist training needed.</div>
-        <div class="wsteps">
-          <div class="wstep"><div class="wstep-n">1</div>Pick a neighbourhood or draw a custom area</div>
-          <div class="wstep"><div class="wstep-n">2</div>Fetch the live road network</div>
-          <div class="wstep"><div class="wstep-n">3</div>Plan routes and predict congestion</div>
-          <div class="wstep"><div class="wstep-n">4</div>Simulate vehicles and compare scenarios</div>
-        </div>
-        <button class="wcard-btn" id="btn-welcome">Start planning →</button>
+        <div class="wcard-title">Get started</div>
+        <div class="wcard-body">Pick a neighbourhood on the left, or draw a custom area on the map, to load a road network.</div>
+        <button class="wcard-btn" id="btn-welcome">Got it</button>
       </div>
     </div>
 
@@ -297,13 +296,13 @@
     <div id="report-toolbar">
       <span>Planning report</span>
       <span class="report-toolbar-actions">
-        <button id="report-print" class="btn btn-primary" style="width:auto;padding:7px 16px">🖨 Print / Save PDF</button>
+        <button id="report-print" class="btn btn-primary" style="width:auto;padding:7px 16px">Print / Save PDF</button>
         <button id="report-close" class="btn btn-ghost" style="width:auto;padding:7px 16px">Close</button>
       </span>
     </div>
     <div id="report-body">
       <div class="report-head">
-        <div class="report-title">Urban<span>Flow</span> — Planning Report</div>
+        <div class="report-title">Road &amp; Traffic Planner — Planning Report</div>
         <div class="report-meta" id="report-generated"></div>
       </div>
 
@@ -336,7 +335,7 @@
         <p class="report-empty" id="rs-insights-empty">No insights available — run a traffic prediction first.</p>
       </div>
 
-      <p class="report-footnote">⚠ Traffic predictions use synthetic training data for demonstration purposes only — not real Nairobi traffic counts. Generated by UrbanFlow for planning discussion; not a substitute for a certified traffic study.</p>
+      <p class="report-footnote">Traffic predictions use synthetic training data for demonstration purposes only — not real Nairobi traffic counts. Generated for planning discussion; not a substitute for a certified traffic study.</p>
     </div>
   </div>
 </div>

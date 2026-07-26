@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── state ────────────────────────────────────────────────
   let graph = null, origin = null, dest = null;
   let mode = 'analyse', tool = null, editA = null;
-  let typesOn = false, selEdge = null;
+  let activeTypes = new Set(), selEdge = null;
 
   // ── report state (last result of each analysis, for the report view) ──
   let lastArea = null, lastRoute = null, lastTraffic = null, lastCompare = null, lastInsights = [];
@@ -44,17 +44,27 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // ── welcome ──────────────────────────────────────────────
-  $('btn-welcome').onclick = () => {
+  const dismissWelcome = () => {
     $('welcome').classList.add('off');
     setTimeout(()=>{ $('welcome').style.display='none'; }, 450);
+  };
+  $('btn-welcome').onclick = dismissWelcome;
+
+  // ── theme ────────────────────────────────────────────────
+  $('btn-theme').onclick = () => {
+    const cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    const next = cur === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    MapManager.setTheme(next);
   };
 
   // ── tooltip system ────────────────────────────────────────
   const TIPS = {
-    'bbox-drawn':   { title:'📡 Ready to fetch', body:'Your area is selected. Click <strong>Fetch</strong> to load the road network from OpenStreetMap.', target:'btn-fetch', pos:'right' },
-    'net-loaded':   { title:'🛣 Network loaded', body:'Click <strong>any two points</strong> on the map to set an origin and destination for routing.', target:'btn-route', pos:'right' },
-    'route-done':   { title:'🔥 Predict traffic', body:'Select an hour and day then click <strong>Predict</strong> to see congestion levels on each road.', target:'btn-traffic', pos:'right' },
-    'traffic-done': { title:'🚗 Run simulation', body:'Click <strong>Start</strong> to launch live vehicle simulation. Blue = oncoming, red-orange = outgoing.', target:'btn-sim-go', pos:'right' },
+    'bbox-drawn':   { title:'Ready to fetch', body:'Your area is selected. Click <strong>Fetch</strong> to load the road network from OpenStreetMap.', target:'btn-fetch', pos:'right' },
+    'net-loaded':   { title:'Network loaded', body:'Click <strong>any two points</strong> on the map to set an origin and destination for routing.', target:'btn-route', pos:'right' },
+    'route-done':   { title:'Predict traffic', body:'Select an hour and day then click <strong>Predict</strong> to see congestion levels on each road.', target:'btn-traffic', pos:'right' },
+    'traffic-done': { title:'Run simulation', body:'Click <strong>Start</strong> to launch live vehicle simulation. Blue = oncoming, red-orange = outgoing.', target:'btn-sim-go', pos:'right' },
   };
   let muteTips = localStorage.getItem('uf-mute') === '1';
   $('tip-ok').onclick   = () => hideTip();
@@ -115,8 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const [s,w,n,e] = c.dataset.bbox.split(',').map(Number);
       MapManager.flyToBbox(s,w,n,e);
       $('btn-fetch').disabled = false;
-      $('welcome').classList.add('off');
-      setTimeout(()=>{ $('welcome').style.display='none'; },450);
+      dismissWelcome();
       st('st-load', `Area: ${c.textContent} — click Fetch`, 'info');
     };
   });
@@ -126,6 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.achip').forEach(x=>x.classList.remove('on'));
     selectedAreaName = 'Custom area';
     MapManager.startBboxDraw();
+    dismissWelcome();
     st('st-load','Draw a rectangle on the map…','info');
   };
   document.addEventListener('bbox-drawn', () => {
@@ -151,7 +161,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 5000);
     try {
       graph = await API.fetchNetwork(bbox);
-      MapManager.renderNetwork(graph, typesOn);
+      activeTypes = new Set();
+      MapManager.renderNetwork(graph, activeTypes);
       st('st-load', `${graph.nodes.length} nodes · ${graph.edges.length} edges`, 'ok');
       enableMain();
       buildTypePanel(graph);
@@ -178,11 +189,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const counts = {};
     g.edges.forEach(e=>{ let h=Array.isArray(e.highway)?e.highway[0]:(e.highway||'unclassified'); counts[h]=(counts[h]||0)+1; });
     const grid = $('road-type-grid'); grid.innerHTML='';
+
+    const allChip = document.createElement('div');
+    allChip.className = 'rchip on';
+    allChip.textContent = 'All';
+    allChip.onclick = () => {
+      activeTypes.clear();
+      grid.querySelectorAll('.rchip').forEach(x => x.classList.remove('on'));
+      allChip.classList.add('on');
+      MapManager.rerenderWithTypes(activeTypes, RCOL);
+    };
+    grid.appendChild(allChip);
+
     Object.entries(counts).sort((a,b)=>b[1]-a[1]).forEach(([t,n])=>{
       const c=document.createElement('div'); c.className='rchip';
       c.style.setProperty('--chip-c', RCOL[t]||'#6b7280');
       c.innerHTML=`<span class="rchip-dot"></span>${t}<span style="color:var(--ink-4);font-size:10px;margin-left:auto">${n}</span>`;
-      c.onclick=()=>{ c.classList.toggle('on'); typesOn=!!document.querySelectorAll('.rchip.on').length; MapManager.rerenderWithTypes(typesOn, RCOL); };
+      c.onclick=()=>{
+        c.classList.toggle('on');
+        if (c.classList.contains('on')) activeTypes.add(t); else activeTypes.delete(t);
+        allChip.classList.toggle('on', activeTypes.size === 0);
+        MapManager.rerenderWithTypes(activeTypes, RCOL);
+      };
       grid.appendChild(c);
     });
     $('sec-types').style.display='';
@@ -310,7 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (tool==='remove') {
       if (!confirm(`Remove: ${edge.name||edge.highway||'segment'}?`)) return;
       graph.edges=graph.edges.filter(e=>e.id!==edge.id);
-      MapManager.setGraphData(graph); MapManager.renderNetwork(graph,typesOn); st('st-edit','Removed','ok'); toast('Road removed','info');
+      MapManager.setGraphData(graph); MapManager.renderNetwork(graph,activeTypes); st('st-edit','Removed','ok'); toast('Road removed','info');
     } else if (tool==='inspect') {
       selEdge=edge;
       let h=Array.isArray(edge.highway)?edge.highway[0]:(edge.highway||'unclassified');
@@ -339,7 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
     else {
       const dist=Math.hypot((editA.lat-best.lat)*111000,(editA.lon-best.lon)*111000*Math.cos(editA.lat*Math.PI/180));
       graph.edges.push({ id:`c_${editA.id}_${best.id}_${Date.now()}`, source:editA.id, target:best.id, length:Math.round(dist), speed_kph:parseFloat($('a-speed').value)||50, lanes:parseInt($('a-lanes').value)||2, highway:$('a-type').value, name:$('a-name').value, oneway:false });
-      MapManager.setGraphData(graph); MapManager.renderNetwork(graph,typesOn);
+      MapManager.setGraphData(graph); MapManager.renderNetwork(graph,activeTypes);
       editA=null; st('st-edit',`Added ${Math.round(dist)}m road`,'ok'); toast(`Road added (${Math.round(dist)}m)`,'ok');
       document.dispatchEvent(new Event('uf:edit-used'));
     }
@@ -382,7 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
     catch(e){toast(e.message,'err');}
   };
 
-  window.loadSc=async(id)=>{ load('Loading…'); try{ const s=await API.getScenario(id); graph=s.graph_data; MapManager.renderNetwork(graph,typesOn); buildTypePanel(graph); enableMain(); toast(`Loaded: ${s.name}`,'ok'); }catch(e){toast(e.message,'err');}finally{unload();} };
+  window.loadSc=async(id)=>{ load('Loading…'); try{ const s=await API.getScenario(id); graph=s.graph_data; activeTypes=new Set(); MapManager.renderNetwork(graph,activeTypes); buildTypePanel(graph); enableMain(); toast(`Loaded: ${s.name}`,'ok'); }catch(e){toast(e.message,'err');}finally{unload();} };
   window.delSc=async(id)=>{ if(!confirm('Delete?'))return; await API.deleteScenario(id); toast('Deleted','info'); await loadScenarios(); };
   window.renSc=async(id,oldName)=>{
     const name=prompt('Rename scenario:',oldName); if (name===null) return;

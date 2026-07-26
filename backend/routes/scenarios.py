@@ -1,11 +1,13 @@
 import re
 import sqlite3
+import logging
 
 from flask import Blueprint, request, jsonify, current_app
 from backend.models.database import get_db
 import json
 
 scenarios_bp = Blueprint("scenarios", __name__)
+logger = logging.getLogger(__name__)
 
 NAME_MAX_LEN = 60
 DESCRIPTION_MAX_LEN = 300
@@ -88,9 +90,10 @@ def create_scenario():
     except sqlite3.IntegrityError:
         db.close()
         return jsonify({"error": f'A scenario named "{name}" already exists'}), 409
-    except Exception as e:
+    except Exception:
         db.close()
-        return jsonify({"error": str(e)}), 500
+        logger.exception("Failed to create scenario %r", name)
+        return jsonify({"error": "Failed to save the scenario."}), 500
     db.close()
     return jsonify({"id": scenario_id, "name": name}), 201
 

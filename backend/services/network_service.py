@@ -46,6 +46,9 @@ def graph_to_dict(G: nx.MultiDiGraph) -> dict:
 
 def dict_to_graph(data: dict) -> nx.MultiDiGraph:
     """Reconstruct a NetworkX graph from the serialised dict."""
+    if "nodes" not in data or "edges" not in data:
+        raise KeyError("graph data must contain 'nodes' and 'edges'")
+
     G = nx.MultiDiGraph()
     for node in data["nodes"]:
         G.add_node(node["id"], y=node["lat"], x=node["lon"])

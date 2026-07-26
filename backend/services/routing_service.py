@@ -21,6 +21,8 @@ def find_nearest_node(G: nx.MultiDiGraph, lat: float, lon: float) -> str:
         if d < best_dist:
             best_dist = d
             best_node = node_id
+    if best_node is None:
+        raise ValueError("Graph has no nodes to route between.")
     return best_node
 
 

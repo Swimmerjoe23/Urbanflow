@@ -1,5 +1,6 @@
 import json
 import secrets
+import sys
 import time
 from collections import defaultdict
 
@@ -178,8 +179,17 @@ def create_app(database=None):
     return app
 
 
-if __name__ == "__main__":
+# Module-level instance so a plain `gunicorn app:app` works — some hosts
+# (Render included, in practice) default to that instead of respecting a
+# custom start command. Skipped under pytest so merely importing this
+# module for `create_app` doesn't also init/seed the real instance database
+# as a side effect of test collection — pytest imports itself into
+# sys.modules before collecting, so this check reliably distinguishes the
+# two without needing a separate env var.
+if "pytest" not in sys.modules:
     app = create_app()
+
+if __name__ == "__main__":
     port = int(os.getenv("PORT", 5050))
     debug = os.getenv("FLASK_ENV") != "production"
     app.run(host="0.0.0.0", port=port, debug=debug)

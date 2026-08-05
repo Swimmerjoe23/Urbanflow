@@ -19,7 +19,7 @@ HIGHWAY_TYPES = [
     "tertiary", "residential", "unclassified"
 ]
 
-_CONGESTION_PROFILE = {
+DEFAULT_CONGESTION_PROFILE = {
     "motorway":    [.1,.1,.1,.1,.1,.1,.3,.7,.9,.7,.5,.5,.5,.5,.5,.6,.8,.9,.7,.5,.3,.2,.1,.1],
     "trunk":       [.1,.1,.1,.1,.1,.1,.4,.8,.9,.7,.5,.5,.5,.5,.5,.7,.9,.9,.7,.5,.3,.2,.1,.1],
     "primary":     [.2,.1,.1,.1,.1,.2,.5,.9,.9,.6,.5,.5,.5,.6,.5,.7,.9,.9,.7,.5,.3,.2,.2,.1],
@@ -33,8 +33,9 @@ _CONGESTION_PROFILE = {
 _HW_INDEX = {hw: i for i, hw in enumerate(HIGHWAY_TYPES)}
 
 
-def _build_model():
+def _build_model(profile=None):
     """Build and fit a Ridge regression model on synthetic data."""
+    profile = profile or DEFAULT_CONGESTION_PROFILE
     rng = np.random.default_rng(42)
     rows = []
     targets = []
@@ -42,8 +43,8 @@ def _build_model():
     for day in range(7):
         for hour in range(24):
             for hw in HIGHWAY_TYPES:
-                base = _CONGESTION_PROFILE.get(
-                    hw, _CONGESTION_PROFILE["unclassified"]
+                base = profile.get(
+                    hw, profile.get("unclassified", DEFAULT_CONGESTION_PROFILE["unclassified"])
                 )[hour]
                 if day >= 5:   # weekend
                     base *= 0.6
@@ -63,6 +64,17 @@ def _build_model():
 
 # Train once at import time (fast — synthetic data only)
 _MODEL = _build_model()
+
+
+def set_profile(profile: dict) -> None:
+    """Rebuild the module-level model from an admin-supplied congestion profile."""
+    global _MODEL
+    _MODEL = _build_model(profile)
+
+
+def get_default_profile() -> dict:
+    """Deep copy of the hardcoded default profile, for resetting admin edits."""
+    return {hw: list(hours) for hw, hours in DEFAULT_CONGESTION_PROFILE.items()}
 
 
 def predict_congestion(graph_data: dict, hour: int, day_of_week: int) -> list:

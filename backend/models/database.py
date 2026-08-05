@@ -11,6 +11,19 @@ CREATE TABLE IF NOT EXISTS scenarios (
     created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS users (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    username      TEXT    NOT NULL UNIQUE,
+    password_hash TEXT    NOT NULL,
+    role          TEXT    NOT NULL DEFAULT 'planner' CHECK(role IN ('admin', 'planner')),
+    created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS traffic_profiles (
+    highway_type TEXT PRIMARY KEY,
+    profile_json TEXT NOT NULL   -- JSON array of 24 floats, hourly baseline congestion
+);
 """
 
 def get_db(app):

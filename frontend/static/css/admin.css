@@ -1,0 +1,96 @@
+/* admin.css — admin page layout & table styling, built on main.css tokens */
+
+html, body { height: auto; overflow: auto; }
+
+#admin-app {
+  min-height: 100vh;
+  background: var(--chrome-bg);
+  color: var(--chrome-fg);
+}
+
+#admin-content {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 18px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.admin-panel {
+  border: 1px solid var(--chrome-border);
+  border-radius: var(--r-lg);
+  background: var(--chrome-bg-2);
+  padding: 20px 22px;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+.admin-table th, .admin-table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--chrome-border);
+  text-align: left;
+  color: var(--chrome-fg-2);
+}
+.admin-table th {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--chrome-fg-4);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.admin-table select { width: auto; padding: 4px 6px; font-size: 11.5px; }
+
+.admin-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+.admin-form .field { margin-bottom: 0; min-width: 140px; }
+.admin-form .btn { width: auto; padding: 9px 16px; }
+
+input[type=password] {
+  background: var(--chrome-bg-2);
+  border: 1px solid var(--chrome-border);
+  border-radius: var(--r);
+  color: var(--chrome-fg);
+  font-family: var(--font);
+  font-size: 12.5px;
+  padding: 7px 10px;
+  width: 100%;
+}
+input[type=password]:focus { outline: none; border-color: var(--accent); }
+
+.profile-scroll {
+  overflow-x: auto;
+  margin-bottom: 12px;
+}
+.profile-table th, .profile-table td {
+  padding: 4px 3px;
+  text-align: center;
+}
+.profile-table .hw-label {
+  text-align: left;
+  font-size: 11px;
+  color: var(--chrome-fg-2);
+  white-space: nowrap;
+  padding-right: 10px;
+}
+.profile-table input[type=number] {
+  width: 44px;
+  padding: 3px 2px;
+  font-size: 10.5px;
+  text-align: center;
+}
+
+.btn-delete-user {
+  width: auto;
+  padding: 4px 10px;
+  font-size: 11px;
+}

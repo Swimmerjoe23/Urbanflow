@@ -50,5 +50,12 @@ const API = (() => {
     getScenario:  (id)                    => _get(`/scenarios/${id}`),
     updateScenario: (id, fields)          => _put(`/scenarios/${id}`, fields),
     deleteScenario: (id)                  => _delete(`/scenarios/${id}`),
+    listUsers: ()                         => _get("/admin/users"),
+    createUser: (username, password, role)=> _post("/admin/users", { username, password, role }),
+    updateUser: (id, fields)              => _put(`/admin/users/${id}`, fields),
+    deleteUser: (id)                      => _delete(`/admin/users/${id}`),
+    getTrafficProfile: ()                 => _get("/admin/traffic-profile"),
+    saveTrafficProfile: (profile)         => _put("/admin/traffic-profile", profile),
+    resetTrafficProfile: ()               => _post("/admin/traffic-profile/reset", {}),
   };
 })();

@@ -8,6 +8,39 @@ document.addEventListener('DOMContentLoaded', () => {
   let mode = 'analyse', tool = null, editA = null;
   let activeTypes = new Set(), selEdge = null;
 
+  // ── edit history (undo/redo) + km added/removed tracking ───
+  let kmAdded = 0, kmRemoved = 0;
+  let undoStack = [], redoStack = [];
+  const MAX_HISTORY = 50;
+
+  function resetEditHistory() {
+    kmAdded = 0; kmRemoved = 0; undoStack = []; redoStack = [];
+    updateEditHistoryUI();
+  }
+  function updateEditHistoryUI() {
+    if ($('km-added'))   $('km-added').textContent = kmAdded.toFixed(2);
+    if ($('km-removed')) $('km-removed').textContent = kmRemoved.toFixed(2);
+    if ($('btn-undo'))   $('btn-undo').disabled = undoStack.length === 0;
+    if ($('btn-redo'))   $('btn-redo').disabled = redoStack.length === 0;
+  }
+  // Call before mutating `graph`, so the pre-edit state can be restored later.
+  function pushUndo() {
+    if (!graph) return;
+    undoStack.push({ graph: JSON.parse(JSON.stringify(graph)), kmAdded, kmRemoved });
+    if (undoStack.length > MAX_HISTORY) undoStack.shift();
+    redoStack = [];
+    updateEditHistoryUI();
+  }
+  function applyEditSnapshot(snap) {
+    graph = snap.graph; kmAdded = snap.kmAdded; kmRemoved = snap.kmRemoved;
+    // an in-progress "add road" first click, or an inspected edge, may no
+    // longer exist (or mean the same thing) in the restored graph
+    editA = null; selEdge = null;
+    MapManager.setGraphData(graph); MapManager.renderNetwork(graph, activeTypes);
+    buildTypePanel(graph);
+    updateEditHistoryUI();
+  }
+
   // ── report state (last result of each analysis, for the report view) ──
   let lastArea = null, lastRoute = null, lastTraffic = null, lastCompare = null, lastInsights = [];
   let insightsVisible = true;
@@ -124,18 +157,30 @@ document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('.mode-tab').forEach(x=>x.classList.remove('active'));
       t.classList.add('active'); mode = t.dataset.mode;
       ['analyse','edit','compare'].forEach(m => $(`mode-${m}`).style.display = m===mode ? '' : 'none');
+      // the sidebar panel height changes per tab, which can leave the map
+      // sized/rendered stale until it's told to recalculate.
+      setTimeout(() => MapManager.invalidateSize(), 0);
     };
   });
+
+  // Returning to this browser tab (or the window regaining focus) can leave
+  // Leaflet's tiles stale — nudge it to recheck its size and redraw.
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) setTimeout(() => MapManager.invalidateSize(), 0);
+  });
+  window.addEventListener('focus', () => setTimeout(() => MapManager.invalidateSize(), 0));
 
   // ── load network — shared between the Analyse and Compare tabs ──
   const stLoad = (msg, cls='') => {
     st('st-load', msg, cls);
     if ($('st-load-cmp')) st('st-load-cmp', msg, cls);
+    if ($('st-load-edit')) st('st-load-edit', msg, cls);
   };
   const setFetchEnabled = (enabled) => {
     const reason = 'Pick an area, search a place, or draw a box first';
     setBtn('btn-fetch', !enabled, reason);
     if ($('btn-fetch-cmp')) setBtn('btn-fetch-cmp', !enabled, reason);
+    if ($('btn-fetch-edit')) setBtn('btn-fetch-edit', !enabled, reason);
   };
 
   // ── area chips ────────────────────────────────────────────
@@ -163,6 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   $('btn-draw').onclick = startDraw;
   if ($('btn-draw-cmp')) $('btn-draw-cmp').onclick = startDraw;
+  if ($('btn-draw-edit')) $('btn-draw-edit').onclick = startDraw;
 
   document.addEventListener('bbox-drawn', () => {
     setFetchEnabled(true);
@@ -188,12 +234,17 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       graph = await API.fetchNetwork(bbox);
       activeTypes = new Set();
+      resetEditHistory();
+      MapManager.clearComparison(); $('compare-bar').classList.add('hidden');
       MapManager.renderNetwork(graph, activeTypes);
       stLoad(`${graph.nodes.length} nodes · ${graph.edges.length} edges`, 'ok');
       enableMain();
       buildTypePanel(graph);
       lastArea = { name: selectedAreaName, bbox, nodeCount: graph.nodes.length, edgeCount: graph.edges.length };
       lastRoute = null; lastTraffic = null; lastInsights = [];
+      origin = null; dest = null;
+      $('wp-a').innerHTML='Origin — <span class="wp-val">not set</span>'; $('wp-b').innerHTML='Destination — <span class="wp-val">not set</span>';
+      MapManager.clearRoute(); MapManager.clearWaypoints();
       MapManager.clearInsights(); $('insight-chip').classList.add('hidden');
       prog(2);
       showTip('net-loaded');
@@ -208,6 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   $('btn-fetch').onclick = fetchNetwork;
   if ($('btn-fetch-cmp')) $('btn-fetch-cmp').onclick = fetchNetwork;
+  if ($('btn-fetch-edit')) $('btn-fetch-edit').onclick = fetchNetwork;
 
   // ── search a place by name — instant local matches + live suggestions ──
   const PRESET_AREAS = [...document.querySelectorAll('#area-chips .achip')].map(c => ({
@@ -304,6 +356,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   wireSearchInput('area-search', 'area-suggest');
   wireSearchInput('area-search-cmp', 'area-suggest-cmp');
+  wireSearchInput('area-search-edit', 'area-suggest-edit');
 
   // ── road type panel ───────────────────────────────────────
   const RCOL = { motorway:'#ef4444', trunk:'#f97316', primary:'#eab308',
@@ -315,7 +368,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const grid = $('road-type-grid'); grid.innerHTML='';
 
     const allChip = document.createElement('div');
-    allChip.className = 'rchip on';
+    allChip.className = 'rchip' + (activeTypes.size === 0 ? ' on' : '');
     allChip.textContent = 'All';
     allChip.onclick = () => {
       activeTypes.clear();
@@ -326,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
     grid.appendChild(allChip);
 
     Object.entries(counts).sort((a,b)=>b[1]-a[1]).forEach(([t,n])=>{
-      const c=document.createElement('div'); c.className='rchip';
+      const c=document.createElement('div'); c.className='rchip' + (activeTypes.has(t) ? ' on' : '');
       c.style.setProperty('--chip-c', RCOL[t]||'#6b7280');
       c.innerHTML=`<span class="rchip-dot"></span>${t}<span style="color:var(--ink-4);font-size:10px;margin-left:auto">${n}</span>`;
       c.onclick=()=>{
@@ -348,13 +401,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!origin) {
       origin={lat:ll.lat, lon:ll.lng};
       $('wp-a').innerHTML=`Origin — <span class="wp-val">${ll.lat.toFixed(5)}, ${ll.lng.toFixed(5)}</span>`;
+      MapManager.setWaypoint(ll, 'origin');
     } else if (!dest) {
       dest={lat:ll.lat, lon:ll.lng};
       $('wp-b').innerHTML=`Destination — <span class="wp-val">${ll.lat.toFixed(5)}, ${ll.lng.toFixed(5)}</span>`;
+      MapManager.setWaypoint(ll, 'dest');
     } else {
       origin={lat:ll.lat,lon:ll.lng}; dest=null;
       $('wp-a').innerHTML=`Origin — <span class="wp-val">${ll.lat.toFixed(5)}, ${ll.lng.toFixed(5)}</span>`;
       $('wp-b').innerHTML=`Destination — <span class="wp-val">not set</span>`;
+      MapManager.clearWaypoints(); MapManager.setWaypoint(ll, 'origin');
       st('st-route',''); MapManager.clearRoute();
     }
     updateRouteButton();
@@ -379,7 +435,7 @@ document.addEventListener('DOMContentLoaded', () => {
     finally { unload(); }
   };
 
-  $('btn-clear-route').onclick = ()=>{ MapManager.clearRoute(); origin=dest=null; updateRouteButton(); $('btn-clear-route').disabled=true; $('wp-a').innerHTML='Origin — <span class="wp-val">not set</span>'; $('wp-b').innerHTML='Destination — <span class="wp-val">not set</span>'; st('st-route',''); };
+  $('btn-clear-route').onclick = ()=>{ MapManager.clearRoute(); MapManager.clearWaypoints(); origin=dest=null; updateRouteButton(); $('btn-clear-route').disabled=true; $('wp-a').innerHTML='Origin — <span class="wp-val">not set</span>'; $('wp-b').innerHTML='Destination — <span class="wp-val">not set</span>'; st('st-route',''); };
 
   // ── traffic ───────────────────────────────────────────────
   $('hour').oninput = ()=>{ $('hour-val').textContent=String(parseInt($('hour').value)).padStart(2,'0')+':00'; };
@@ -460,7 +516,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (mode!=='edit') return;
     if (tool==='remove') {
       if (!confirm(`Remove: ${edge.name||edge.highway||'segment'}?`)) return;
+      pushUndo();
       graph.edges=graph.edges.filter(e=>e.id!==edge.id);
+      kmRemoved += (edge.length||0)/1000; updateEditHistoryUI();
       MapManager.setGraphData(graph); MapManager.renderNetwork(graph,activeTypes); st('st-edit','Removed','ok'); toast('Road removed','info');
     } else if (tool==='inspect') {
       selEdge=edge;
@@ -475,11 +533,25 @@ document.addEventListener('DOMContentLoaded', () => {
     $(id).onchange=()=>{
       if (!selEdge||!graph) return;
       const e=graph.edges.find(x=>x.id===selEdge.id); if (!e) return;
+      pushUndo();
       e.highway=$('a-type').value; e.speed_kph=parseFloat($('a-speed').value)||50;
       e.lanes=parseInt($('a-lanes').value)||2; e.name=$('a-name').value;
       MapManager.setGraphData(graph); st('st-edit','Updated','ok');
     };
   });
+
+  $('btn-undo').onclick=()=>{
+    if (!undoStack.length) return;
+    redoStack.push({ graph: JSON.parse(JSON.stringify(graph)), kmAdded, kmRemoved });
+    applyEditSnapshot(undoStack.pop());
+    st('st-edit','Undone','info'); toast('Undid last edit','info');
+  };
+  $('btn-redo').onclick=()=>{
+    if (!redoStack.length) return;
+    undoStack.push({ graph: JSON.parse(JSON.stringify(graph)), kmAdded, kmRemoved });
+    applyEditSnapshot(redoStack.pop());
+    st('st-edit','Redone','info'); toast('Redid edit','info');
+  };
 
   function handleEditClick(ll) {
     if (tool!=='add'||!graph) return;
@@ -489,7 +561,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!editA) { editA=best; st('st-edit','Node A set — click second node','info'); }
     else {
       const dist=Math.hypot((editA.lat-best.lat)*111000,(editA.lon-best.lon)*111000*Math.cos(editA.lat*Math.PI/180));
+      pushUndo();
       graph.edges.push({ id:`c_${editA.id}_${best.id}_${Date.now()}`, source:editA.id, target:best.id, length:Math.round(dist), speed_kph:parseFloat($('a-speed').value)||50, lanes:parseInt($('a-lanes').value)||2, highway:$('a-type').value, name:$('a-name').value, oneway:false });
+      kmAdded += dist/1000; updateEditHistoryUI();
       MapManager.setGraphData(graph); MapManager.renderNetwork(graph,activeTypes);
       editA=null; st('st-edit',`Added ${Math.round(dist)}m road`,'ok'); toast(`Road added (${Math.round(dist)}m)`,'ok');
       document.dispatchEvent(new Event('uf:edit-used'));
@@ -509,14 +583,16 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadScenarios() {
     try {
       const sc=await API.listScenarios();
-      const list=$('sc-list');
-      if (!sc.length){list.innerHTML='<p class="hint">No scenarios yet.</p>';return;}
-      list.innerHTML='';
-      sc.forEach(s=>{
-        const d=document.createElement('div'); d.className='sc-item';
-        d.innerHTML=`<span class="sc-name">${s.name}</span><span class="sc-actions"><button class="sc-ren" title="Rename" onclick="renSc(${s.id},'${s.name.replace(/'/g,"\\'")}')">✎</button><button class="sc-load" onclick="loadSc(${s.id})">Load</button><button class="sc-del" title="Delete" onclick="delSc(${s.id})">✕</button></span>`;
-        list.appendChild(d);
-      });
+      const scSel=$('sc-select'), curSc=scSel.value;
+      if (!sc.length) {
+        scSel.innerHTML='<option value="">No scenarios yet</option>';
+      } else {
+        scSel.innerHTML='<option value="">— select a scenario —</option>'
+          + sc.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+        scSel.value = sc.some(s=>String(s.id)===curSc) ? curSc : '';
+      }
+      updateScSelectButtons();
+
       ['cmp-a','cmp-b'].forEach(id=>{
         const sel=$(id),cur=sel.value; sel.innerHTML='<option value="">— select —</option>';
         sc.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;sel.appendChild(o);}); sel.value=cur;
@@ -524,6 +600,14 @@ document.addEventListener('DOMContentLoaded', () => {
       setBtn('btn-cmp', sc.length<2, 'Save at least two scenarios first');
     } catch(_){}
   }
+
+  function updateScSelectButtons() {
+    const has = !!$('sc-select').value;
+    setBtn('sc-btn-load', !has, 'Select a scenario first');
+    setBtn('sc-btn-ren',  !has, 'Select a scenario first');
+    setBtn('sc-btn-del',  !has, 'Select a scenario first');
+  }
+  $('sc-select').onchange = updateScSelectButtons;
 
   $('btn-save').onclick=async()=>{
     const name=$('sc-name').value.trim();
@@ -535,13 +619,33 @@ document.addEventListener('DOMContentLoaded', () => {
     catch(e){toast(e.message,'err');}
   };
 
-  window.loadSc=async(id)=>{ load('Loading…'); try{ const s=await API.getScenario(id); graph=s.graph_data; activeTypes=new Set(); MapManager.renderNetwork(graph,activeTypes); buildTypePanel(graph); enableMain(); toast(`Loaded: ${s.name}`,'ok'); }catch(e){toast(e.message,'err');}finally{unload();} };
+  window.loadSc=async(id)=>{
+    load('Loading…');
+    try{
+      const s=await API.getScenario(id);
+      graph=s.graph_data; activeTypes=new Set(); resetEditHistory();
+      origin=null; dest=null; updateRouteButton();
+      $('wp-a').innerHTML='Origin — <span class="wp-val">not set</span>'; $('wp-b').innerHTML='Destination — <span class="wp-val">not set</span>';
+      MapManager.clearRoute(); MapManager.clearWaypoints(); MapManager.clearComparison();
+      $('compare-bar').classList.add('hidden');
+      MapManager.renderNetwork(graph,activeTypes); buildTypePanel(graph); enableMain();
+      toast(`Loaded: ${s.name}`,'ok');
+    }catch(e){toast(e.message,'err');}finally{unload();}
+  };
   window.delSc=async(id)=>{ if(!confirm('Delete?'))return; await API.deleteScenario(id); toast('Deleted','info'); await loadScenarios(); };
   window.renSc=async(id,oldName)=>{
     const name=prompt('Rename scenario:',oldName); if (name===null) return;
     const trimmed=name.trim(); const err=validateScenarioName(trimmed); if (err){toast(err,'err');return;}
     try { await API.updateScenario(id,{name:trimmed}); toast('Renamed','ok'); await loadScenarios(); }
     catch(e){toast(e.message,'err');}
+  };
+
+  $('sc-btn-load').onclick=()=>{ const id=$('sc-select').value; if (id) loadSc(Number(id)); };
+  $('sc-btn-del').onclick =()=>{ const id=$('sc-select').value; if (id) delSc(Number(id)); };
+  $('sc-btn-ren').onclick =()=>{
+    const id=$('sc-select').value; if (!id) return;
+    const opt=$('sc-select').selectedOptions[0];
+    renSc(Number(id), opt ? opt.textContent : '');
   };
 
   $('btn-cmp').onclick=async()=>{
@@ -555,7 +659,10 @@ document.addEventListener('DOMContentLoaded', () => {
       $('ca-name').textContent=sA.name; $('cb-name').textContent=sB.name;
       $('ca-e').textContent=sA.graph_data.edges.length; $('cb-e').textContent=sB.graph_data.edges.length;
       $('ca-c').textContent=(avg(pA)*100).toFixed(1)+'%'; $('cb-c').textContent=(avg(pB)*100).toFixed(1)+'%';
-      $('compare-bar').classList.remove('hidden'); st('st-cmp',`${sA.name} vs ${sB.name}`,'ok'); toast('Comparison ready','ok');
+      MapManager.renderComparison(sA.graph_data, sB.graph_data);
+      origin = null; dest = null; updateRouteButton();
+      $('wp-a').innerHTML='Origin — <span class="wp-val">not set</span>'; $('wp-b').innerHTML='Destination — <span class="wp-val">not set</span>';
+      $('compare-bar').classList.remove('hidden'); st('st-cmp',`${sA.name} vs ${sB.name}`,'ok'); toast('Comparison ready — Scenario A is cyan, Scenario B is pink','ok');
       lastCompare = {
         a: { name: sA.name, edges: sA.graph_data.edges.length, congestionPct: (avg(pA)*100).toFixed(1) },
         b: { name: sB.name, edges: sB.graph_data.edges.length, congestionPct: (avg(pB)*100).toFixed(1) },
@@ -563,7 +670,11 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch(e){toast(e.message,'err');}
     finally{unload();}
   };
-  $('compare-close').onclick=()=>$('compare-bar').classList.add('hidden');
+  $('compare-close').onclick=()=>{
+    $('compare-bar').classList.add('hidden');
+    MapManager.clearComparison();
+    if (graph) MapManager.renderNetwork(graph, activeTypes);
+  };
 
   loadScenarios();
   enableMain();
@@ -621,17 +732,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const insightsList = $('rs-insights-list');
     const INSIGHT_COLOUR = { bottleneck: '#C23B2C', single_point_of_failure: '#B8740A' };
     if (lastInsights.length) {
-      insightsList.innerHTML = lastInsights.map(ins => `
+      const nBottleneck = lastInsights.filter(i=>i.type==='bottleneck').length;
+      const nSpof = lastInsights.filter(i=>i.type==='single_point_of_failure').length;
+      const summaryParts = [];
+      if (nBottleneck) summaryParts.push(`${nBottleneck} likely bottleneck${nBottleneck>1?'s':''}`);
+      if (nSpof) summaryParts.push(`${nSpof} single point${nSpof>1?'s':''} of failure`);
+      insightsList.innerHTML =
+        `<div class="report-insight-summary">${lastInsights.length} insight${lastInsights.length>1?'s':''} found — ${summaryParts.join(', ')}.</div>`
+        + lastInsights.map(ins => `
         <div class="report-insight">
           <div class="report-insight-title"><span class="dot" style="background:${INSIGHT_COLOUR[ins.type]||'var(--ink-3)'}"></span>${ins.title}</div>
           <div class="report-insight-msg">${ins.message}</div>
-          <div class="report-insight-why">${ins.why}</div>
+          <div class="report-insight-why"><strong>Why:</strong> ${ins.why}</div>
+          ${ins.suggestion ? `<div class="report-insight-suggestion"><strong>Suggestion:</strong> ${ins.suggestion}</div>` : ''}
         </div>`).join('');
     } else { insightsList.innerHTML=''; }
     $('rs-insights-empty').style.display = lastInsights.length ? 'none' : '';
   }
 
   $('btn-report').onclick = () => { renderReport(); $('report-overlay').classList.remove('hidden'); };
+  if ($('btn-report-sidebar')) $('btn-report-sidebar').onclick = () => { renderReport(); $('report-overlay').classList.remove('hidden'); };
   $('report-close').onclick = () => $('report-overlay').classList.add('hidden');
   $('report-print').onclick = () => window.print();
   $('report-overlay').addEventListener('click', e => { if (e.target.id==='report-overlay') $('report-overlay').classList.add('hidden'); });

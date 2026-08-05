@@ -25,6 +25,7 @@
       <div id="logo-sub">Nairobi</div>
       <div id="logo-nav">
         <button id="btn-report" class="logo-nav-link" style="background:none;border:none;font-family:inherit;cursor:pointer;padding:0">Report</button>
+        {% if role == 'admin' %}<a href="/admin" class="logo-nav-link">Admin</a>{% endif %}
         <a href="/about" target="_blank" class="logo-nav-link">About</a>
         <a href="/logout" class="logo-nav-link">Sign out</a>
         <button id="btn-theme" class="logo-nav-link" type="button" style="background:none;border:none;font-family:inherit;cursor:pointer;padding:0" title="Toggle dark/light mode">◐</button>
@@ -87,19 +88,20 @@
           <div class="panel-label">Route</div>
           <p class="hint">Click two points on the map to set origin and destination.</p>
           <div class="field">
-            <label>Algorithm</label>
+            <label>Algorithm <span class="field-hint" title="How the route is searched. Either algorithm can optimise by distance or by travel time — that's set separately below.">— the search method</span></label>
             <select id="algo">
-              <option value="dijkstra">Dijkstra — shortest distance</option>
-              <option value="astar">A* — fastest travel time</option>
+              <option value="dijkstra">Dijkstra</option>
+              <option value="astar">A* (heuristic search)</option>
             </select>
           </div>
           <div class="field">
-            <label>Optimise by</label>
+            <label>Optimise by <span class="field-hint" title="What the chosen algorithm minimises along the route.">— what it minimises</span></label>
             <select id="weight">
               <option value="length">Distance (metres)</option>
               <option value="travel_time">Travel time</option>
             </select>
           </div>
+          <p class="hint">Algorithm picks how the route is searched; Optimise by picks what it minimises — mix and match, e.g. A* by distance or Dijkstra by travel time.</p>
           <div class="waypoint-row">
             <span class="wp-pip a"></span>
             <span id="wp-a">Origin — <span class="wp-val">not set</span></span>
@@ -168,10 +170,37 @@
           <div id="st-sim" class="status"></div>
         </div>
 
+        <div class="panel">
+          <div class="panel-label">Report</div>
+          <p class="hint">Summarise the area, route, traffic prediction and insights gathered so far into a printable planning report.</p>
+          <button id="btn-report-sidebar" class="btn btn-primary">Generate report</button>
+        </div>
+
       </div><!-- /analyse -->
 
       <!-- ── EDIT ─────────────────────────────────────────────── -->
       <div id="mode-edit" style="display:none">
+        <div class="panel">
+          <div class="panel-label">Load network</div>
+          <div class="search-wrap">
+            <input type="text" id="area-search-edit" placeholder="Search a place… e.g. Njiru" autocomplete="off"/>
+            <div id="area-suggest-edit" class="suggest-dropdown hidden"></div>
+          </div>
+          <div id="area-chips-edit">
+            <span class="achip" data-bbox="-1.2921,36.8219,-1.2721,36.8419">CBD</span>
+            <span class="achip" data-bbox="-1.2634,36.7896,-1.2434,36.8096">Westlands</span>
+            <span class="achip" data-bbox="-1.3100,36.7700,-1.2900,36.7900">Kibera</span>
+            <span class="achip" data-bbox="-1.2500,36.8500,-1.2300,36.8700">Kasarani</span>
+            <span class="achip" data-bbox="-1.3200,36.8200,-1.3000,36.8400">South B</span>
+            <span class="achip" data-bbox="-1.2700,36.8100,-1.2500,36.8300">Parklands</span>
+          </div>
+          <p class="hint">Or draw a custom box — click <strong style="color:var(--rust-l)">Draw</strong> then drag on the map.</p>
+          <div class="btn-row">
+            <button id="btn-draw-edit" class="btn btn-ghost">Draw</button>
+            <button id="btn-fetch-edit" class="btn btn-primary" disabled>Fetch</button>
+          </div>
+          <div id="st-load-edit" class="status"></div>
+        </div>
         <div class="panel">
           <div class="panel-label">Edit tools</div>
           <div class="etool" data-tool="add">
@@ -187,6 +216,14 @@
             <div><div class="etool-name">Inspect road</div><div class="etool-desc">Click a segment to edit attributes</div></div>
           </div>
           <div id="st-edit" class="status" style="margin-top:4px"></div>
+          <div class="btn-row" style="margin-top:8px">
+            <button id="btn-undo" class="btn btn-ghost" disabled title="Undo">↶ Undo</button>
+            <button id="btn-redo" class="btn btn-ghost" disabled title="Redo">↷ Redo</button>
+          </div>
+          <div class="cstats" style="margin-top:8px">
+            <span class="cstat">Added: <strong id="km-added">0.00</strong> km</span>
+            <span class="cstat">Removed: <strong id="km-removed">0.00</strong> km</span>
+          </div>
         </div>
         <div class="panel">
           <div class="panel-label">Road attributes</div>
@@ -237,7 +274,12 @@
         </div>
         <div class="panel">
           <div class="panel-label">Saved scenarios</div>
-          <div id="sc-list"><p class="hint">No scenarios yet.</p></div>
+          <div class="field"><select id="sc-select"><option value="">No scenarios yet</option></select></div>
+          <div class="btn-row">
+            <button id="sc-btn-load" class="btn btn-primary" disabled>Load</button>
+            <button id="sc-btn-ren"  class="btn btn-ghost"   disabled title="Rename">✎ Rename</button>
+            <button id="sc-btn-del"  class="btn btn-ghost"   disabled title="Delete">✕ Delete</button>
+          </div>
         </div>
         <div class="panel">
           <div class="panel-label">Compare two scenarios</div>

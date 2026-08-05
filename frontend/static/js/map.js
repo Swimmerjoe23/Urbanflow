@@ -1,7 +1,7 @@
 /* map.js — Leaflet map setup and layer management */
 
 const MapManager = (() => {
-  let map, baseLayer, bboxLayer, networkLayer, routeLayer, trafficLayer, editLayer, labelLayer, insightLayer;
+  let map, baseLayer, bboxLayer, networkLayer, routeLayer, trafficLayer, editLayer, labelLayer, insightLayer, compareLayer, waypointLayer;
   let bboxRect = null;
   let drawingBbox = false;
   let bboxStart = null;
@@ -36,6 +36,8 @@ const MapManager = (() => {
     editLayer    = L.layerGroup().addTo(map);
     labelLayer   = L.layerGroup().addTo(map);
     insightLayer = L.layerGroup().addTo(map);
+    compareLayer = L.layerGroup().addTo(map);
+    waypointLayer = L.layerGroup().addTo(map);
 
     map.on('click', (e) => {
       if (drawingBbox) return;
@@ -102,9 +104,7 @@ const MapManager = (() => {
       hw = hw || 'unclassified';
       if (filtering && !activeTypes.has(hw)) return;
 
-      const colour = filtering
-        ? (ROAD_COLOURS[hw] || ROAD_COLOURS.unclassified)
-        : 'rgba(148,163,184,0.6)';
+      const colour = ROAD_COLOURS[hw] || ROAD_COLOURS.unclassified;
 
       const line = L.polyline([from, to], {
         color: colour, weight: filtering ? 3 : 2, opacity: .8,
@@ -128,6 +128,39 @@ const MapManager = (() => {
     if (colours) Object.assign(ROAD_COLOURS, colours);
     if (_graphData) renderNetwork(_graphData, activeTypes);
   }
+
+  // ── Scenario comparison overlay ─────────────────────────────
+  // Draws both scenarios' networks at once, colour coded by scenario, so a
+  // comparison shows two actual networks rather than only stats.
+  function renderComparison(graphA, graphB) {
+    networkLayer.clearLayers();
+    trafficLayer.clearLayers();
+    routeLayer.clearLayers();
+    labelLayer.clearLayers();
+    insightLayer.clearLayers();
+    compareLayer.clearLayers();
+    waypointLayer.clearLayers();
+
+    const bounds = [];
+    const draw = (graphData, colour, label) => {
+      const nodeMap = {};
+      graphData.nodes.forEach(n => { nodeMap[n.id] = [n.lat, n.lon]; bounds.push([n.lat, n.lon]); });
+      graphData.edges.forEach(edge => {
+        const from = nodeMap[edge.source];
+        const to   = nodeMap[edge.target];
+        if (!from || !to) return;
+        L.polyline([from, to], { color: colour, weight: 3, opacity: .75 })
+          .addTo(compareLayer)
+          .bindTooltip(`${label}${edge.name ? ' · ' + edge.name : ''}`, { sticky: true, className: 'road-label-tag' });
+      });
+    };
+
+    draw(graphA, '#22d3ee', 'Scenario A');
+    draw(graphB, '#f472b6', 'Scenario B');
+    if (bounds.length) map.fitBounds(bounds, { padding: [40, 40] });
+  }
+
+  function clearComparison() { compareLayer.clearLayers(); }
 
   // ── Traffic overlay ──────────────────────────────────────────
   function renderTraffic(predictions, graphData) {
@@ -160,8 +193,10 @@ const MapManager = (() => {
       const icon = L.divIcon({
         className: 'insight-bubble-wrap',
         html: `<div class="insight-bubble">
+                 <button class="insight-close" title="Dismiss" aria-label="Dismiss">✕</button>
                  <div class="insight-head" style="color:${colour}"><span class="insight-dot" style="background:${colour}"></span>${ins.title}</div>
                  <div class="insight-msg">${ins.message}</div>
+                 ${ins.suggestion ? `<div class="insight-suggestion"><span class="insight-suggestion-label">Suggestion</span>${ins.suggestion}</div>` : ''}
                  <div class="insight-actions">
                    <span class="insight-why">Why</span>
                    <span class="insight-fly">Fly to</span>
@@ -179,6 +214,9 @@ const MapManager = (() => {
       });
       el.querySelector('.insight-fly').addEventListener('click', () => {
         map.flyTo([ins.location.lat, ins.location.lon], 17, { duration: 0.8 });
+      });
+      el.querySelector('.insight-close').addEventListener('click', () => {
+        insightLayer.removeLayer(marker);
       });
     });
   }
@@ -207,6 +245,32 @@ const MapManager = (() => {
 
   function clearRoute() { routeLayer.clearLayers(); }
 
+  // ── Waypoint pins (origin/destination) ──────────────────────
+  // Dropped immediately on click, before a route is computed, so the user
+  // sees a pin land rather than just a sidebar text update.
+  const WAYPOINT_COLOUR = { origin: '#22c55e', dest: '#ef4444' };
+
+  function setWaypoint(latlng, kind) {
+    const colour = WAYPOINT_COLOUR[kind] || '#5C95E8';
+    const icon = L.divIcon({
+      className: 'wp-pin-wrap',
+      html: `<div class="wp-pin wp-pin-drop" style="--wp-colour:${colour}"></div>`,
+      iconSize: [22, 30],
+      iconAnchor: [11, 30],
+    });
+    const marker = L.marker([latlng.lat, latlng.lng ?? latlng.lon], { icon, interactive: false })
+      .addTo(waypointLayer);
+    marker._wpKind = kind;
+    // only one pin per kind — replace, don't stack (collect first, then remove,
+    // rather than mutating the layer group while eachLayer is iterating it)
+    const stale = [];
+    waypointLayer.eachLayer(l => { if (l !== marker && l._wpKind === kind) stale.push(l); });
+    stale.forEach(l => waypointLayer.removeLayer(l));
+    return marker;
+  }
+
+  function clearWaypoints() { waypointLayer.clearLayers(); }
+
   // ── Edit helpers ─────────────────────────────────────────────
   function highlightEdge(line, colour = '#facc15') {
     line.setStyle({ color: colour, weight: 5 });
@@ -218,6 +282,7 @@ const MapManager = (() => {
     baseLayer.setUrl(`https://{s}.basemaps.cartocdn.com/${tiles}/{z}/{x}/{y}{r}.png`);
   }
 
+  function invalidateSize()    { if (map) map.invalidateSize(); }
   function onMapClick(cb)      { _clickCallback = cb; }
   function onEdgeClick(cb)     { _edgeClickCallback = cb; }
   function getGraphData()      { return _graphData; }
@@ -227,10 +292,12 @@ const MapManager = (() => {
   return {
     init, setTheme, startBboxDraw, getBbox,
     renderNetwork, rerenderWithTypes,
+    renderComparison, clearComparison,
     renderTraffic, clearTraffic,
     renderInsights, clearInsights, setInsightsVisible,
     renderRoute, clearRoute,
-    onMapClick, onEdgeClick,
+    setWaypoint, clearWaypoints,
+    onMapClick, onEdgeClick, invalidateSize,
     getGraphData, setGraphData, getRoadColours,
     highlightEdge,
     getLeafletMap: () => map,

@@ -10,6 +10,7 @@ deterministic checks over data the app already computes):
     the network (a graph articulation point / cut vertex).
 """
 
+import math
 import statistics
 
 import networkx as nx
@@ -77,6 +78,7 @@ def _find_bottlenecks(graph_data, predictions, nodes_by_id, limit=2):
         loc = _midpoint(nodes_by_id, edge["source"], edge["target"])
         if not loc:
             continue
+        lanes = _parse_lanes(edge.get("lanes", 1))
         insights.append({
             "type": "bottleneck",
             "severity": congestion,
@@ -85,8 +87,53 @@ def _find_bottlenecks(graph_data, predictions, nodes_by_id, limit=2):
             "title": "Likely bottleneck",
             "message": f"{_edge_label(edge)} is {round(congestion * 100)}% congested but has only 1 lane.",
             "why": "Predicted congestion is high while the road's lane capacity is low — demand likely exceeds what this segment can carry.",
+            "suggestion": (
+                f"Consider widening to {lanes + 1} lanes, or providing a parallel alternate route, "
+                "to add capacity where demand is concentrated."
+            ),
         })
     return insights
+
+
+def _haversine_m(a, b):
+    """Approximate distance in metres between two {lat, lon} points (small distances, flat-earth ok)."""
+    dlat = (a["lat"] - b["lat"]) * 111000
+    dlon = (a["lon"] - b["lon"]) * 111000 * math.cos(math.radians(a["lat"]))
+    return math.hypot(dlat, dlon)
+
+
+def _suggest_connector(UG, cut_node, nodes_by_id):
+    """Removing `cut_node` splits UG into pieces; find the shortest possible new
+    road (closest node pair across the two largest resulting pieces) that
+    would reconnect them, so the suggestion is a concrete, buildable option
+    rather than a generic "add redundancy" line."""
+    H = UG.copy()
+    H.remove_node(cut_node)
+    components = [c for c in nx.connected_components(H) if len(c) > 0]
+    if len(components) < 2:
+        return None
+    components.sort(key=len, reverse=True)
+    comp_a, comp_b = components[0], components[1]
+
+    best_dist, best_pair = None, None
+    for na in comp_a:
+        pa = nodes_by_id.get(na)
+        if not pa or pa.get("lat") is None:
+            continue
+        for nb in comp_b:
+            pb = nodes_by_id.get(nb)
+            if not pb or pb.get("lat") is None:
+                continue
+            d = _haversine_m(pa, pb)
+            if best_dist is None or d < best_dist:
+                best_dist, best_pair = d, (na, nb)
+
+    if best_dist is None:
+        return None
+    return (
+        f"Consider adding a connector road (about {round(best_dist)}m) between the two halves of "
+        "the network at their closest points, to remove this single point of failure."
+    )
 
 
 def _find_single_points_of_failure(graph_data, nodes_by_id, limit=1):
@@ -105,6 +152,7 @@ def _find_single_points_of_failure(graph_data, nodes_by_id, limit=1):
         node = nodes_by_id.get(node_id)
         if not node or node.get("lat") is None:
             continue
+        suggestion = _suggest_connector(UG, node_id, nodes_by_id)
         insights.append({
             "type": "single_point_of_failure",
             "severity": 1.0,
@@ -113,6 +161,10 @@ def _find_single_points_of_failure(graph_data, nodes_by_id, limit=1):
             "title": "No alternate route",
             "message": "This junction is the only connection between two parts of the network.",
             "why": "Removing this junction would split the road network into disconnected pieces (a cut vertex), so there's no redundant path around it.",
+            "suggestion": suggestion or (
+                "Consider adding a redundant road elsewhere in the network to remove this single "
+                "point of failure."
+            ),
         })
     return insights
 

@@ -231,6 +231,12 @@ html, body {
   font-weight: 500;
   color: var(--chrome-fg-4);
 }
+.field-hint {
+  font-weight: 400;
+  color: var(--chrome-fg-3);
+  border-bottom: 1px dotted var(--chrome-fg-3);
+  cursor: help;
+}
 select, input[type=text], input[type=number] {
   background: var(--chrome-bg-2);
   border: 1px solid var(--chrome-border);
@@ -381,7 +387,7 @@ input[type=range] {
 }
 
 /* ─── NAIROBI AREAS ──────────────────────────────────────────── */
-#area-chips {
+#area-chips, #area-chips-cmp, #area-chips-edit {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -436,33 +442,6 @@ input[type=range] {
   padding: 12px;
   margin-top: 4px;
 }
-
-/* ─── SCENARIO LIST ──────────────────────────────────────────── */
-.sc-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 10px;
-  border-radius: var(--r);
-  border: 1px solid var(--chrome-border);
-  background: var(--chrome-bg-2);
-  margin-bottom: 5px;
-  font-size: 12px;
-  color: var(--chrome-fg-2);
-  gap: 6px;
-}
-.sc-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--chrome-fg); }
-.sc-actions button {
-  background: none; border: none;
-  font-size: 11px; padding: 2px 6px; border-radius: var(--r);
-  cursor: pointer; transition: background 0.15s;
-}
-.sc-load { color: #5C95E8; }
-.sc-load:hover { background: rgba(92,149,232,0.15); }
-.sc-ren  { color: var(--chrome-fg-4); }
-.sc-ren:hover  { background: var(--chrome-hover); color: var(--chrome-fg); }
-.sc-del  { color: #E2685A; }
-.sc-del:hover  { background: rgba(226,104,90,0.15); }
 
 /* ─── LEGEND ─────────────────────────────────────────────────── */
 .legend {
@@ -663,6 +642,23 @@ input[type=range] {
 .tip-bottom .tip-arr { top:-4px; left:50%; transform:translateX(-50%) rotate(135deg); }
 .tip-pulse { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r); }
 
+/* ─── WAYPOINT PINS (origin/destination) ────────────────────── */
+.wp-pin-wrap { background: none !important; border: none !important; }
+.wp-pin {
+  width: 20px; height: 20px;
+  background: var(--wp-colour, #5C95E8);
+  border: 3px solid #fff;
+  border-radius: 50% 50% 50% 0;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.45);
+  transform-origin: center;
+}
+.wp-pin-drop { animation: wp-drop 0.5s cubic-bezier(.34,1.56,.64,1) both; }
+@keyframes wp-drop {
+  0%   { transform: translateY(-36px) rotate(-45deg) scale(0.4); opacity: 0; }
+  60%  { transform: translateY(3px) rotate(-45deg) scale(1.08); opacity: 1; }
+  100% { transform: translateY(0) rotate(-45deg) scale(1); opacity: 1; }
+}
+
 /* ─── INSIGHT CALLOUTS ───────────────────────────────────────── */
 .insight-bubble-wrap { background: none !important; border: none !important; }
 .insight-bubble {
@@ -677,13 +673,28 @@ input[type=range] {
   box-shadow: 0 8px 24px rgba(0,0,0,0.35);
   pointer-events: auto;
 }
-.insight-head { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+.insight-close {
+  position: absolute; top: 6px; right: 6px; width: 18px; height: 18px;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; border-radius: 50%;
+  color: #9C9C98; font-size: 11px; line-height: 1; cursor: pointer; padding: 0;
+}
+.insight-close:hover { background: rgba(255,255,255,0.12); color: #fff; }
+.insight-head { display: flex; align-items: center; gap: 6px; padding-right: 18px; font-size: 12px; font-weight: 600; }
 .insight-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .insight-msg { font-size: 11.5px; line-height: 1.5; color: #C9C9C5; margin-top: 4px; }
 .insight-actions { display: flex; gap: 10px; margin-top: 8px; }
 .insight-why, .insight-fly { font-size: 10.5px; color: #5C95E8; cursor: pointer; }
 .insight-why:hover, .insight-fly:hover { color: #fff; }
 .insight-why-body { font-size: 10.5px; color: #9C9C98; line-height: 1.5; margin-top: 6px; padding-top: 6px; border-top: 1px solid #2A2A27; }
+.insight-suggestion {
+  font-size: 11px; color: #E8E8E4; line-height: 1.5; margin-top: 8px;
+  padding-top: 8px; border-top: 1px dashed #3A3A36;
+}
+.insight-suggestion-label {
+  display: block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: #7CC48A; margin-bottom: 2px;
+}
 
 #insight-chip {
   position: absolute;
@@ -769,6 +780,8 @@ input[type=range] {
 .report-insight-title .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .report-insight-msg { font-size: 12px; color: var(--ink-2); margin-top: 3px; }
 .report-insight-why { font-size: 11px; color: var(--ink-3); margin-top: 3px; }
+.report-insight-suggestion { font-size: 11.5px; color: var(--ink-2); margin-top: 5px; padding-top: 5px; border-top: 1px dashed var(--line); }
+.report-insight-summary { font-size: 12px; color: var(--ink-3); margin-bottom: 10px; }
 .report-footnote { font-size: 10.5px; color: var(--ink-4); line-height: 1.6; margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
 
 @media print {
